@@ -11,6 +11,7 @@ import android.os.Binder;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.util.Log;
 import android.widget.Toast;
 
 import com.autowp.can.CanAdapter;
@@ -33,6 +34,8 @@ public class CanReaderService extends Service
         implements CanAdapter.OnCanFrameTransferListener, CanAdapter.OnCanMessageTransferListener,
             CanAdapter.CanAdapterEventListener {
 
+    private static final String TAG = "CanReaderService";
+
     @Override
     public void handleErrorEvent(final CanAdapterException e) {
         Handler h = new Handler(CanReaderService.this.getMainLooper());
@@ -47,7 +50,6 @@ public class CanReaderService extends Service
 
     @Override
     public void handleConnectionStateChanged(CanAdapter.ConnectionState connection) {
-        System.out.println("handleConnectionStateChanged");
         switch (connection) {
             case DISCONNECTED:
                 break;
@@ -217,6 +219,9 @@ public class CanReaderService extends Service
             unregisterReceiver(mUsbReceiver);
             mUsbReceiver = null;
         }
+        timer.cancel();
+        threadsPool.shutdownNow();
+        super.onDestroy();
     }
 
     public void setCanAdapter(final CanAdapter adapter) {
@@ -233,15 +238,12 @@ public class CanReaderService extends Service
         }
 
         try {
-            System.out.println("disconnect");
             Runnable connectRunable = new Runnable() {
                 @Override
                 public void run() {
                     triggerConnectionStateChanged();
 
                     try {
-                        System.out.println("disconnected");
-                        System.out.println("connect");
                         canAdapter = adapter;
 
                         if (canAdapter != null) {
@@ -258,8 +260,6 @@ public class CanReaderService extends Service
                                     filter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
                                     registerReceiver(mUsbReceiver, filter);
 
-                                    System.out.println("connected");
-
                                     triggerConnectionStateChanged();
                                 }
                             });
@@ -268,8 +268,7 @@ public class CanReaderService extends Service
                     } catch (CanAdapterException e) {
                         canAdapter = null;
                         triggerConnectionStateChanged();
-                        e.printStackTrace();
-
+                        Log.e(TAG, "Unable to connect CAN adapter", e);
                         toast(e.getMessage());
                     }
                 }
@@ -287,8 +286,7 @@ public class CanReaderService extends Service
             }
 
         } catch (CanAdapterException e) {
-            e.printStackTrace();
-
+            Log.e(TAG, "Unable to disconnect CAN adapter", e);
             toast(e.getMessage());
         }
 
@@ -501,7 +499,7 @@ public class CanReaderService extends Service
         try {
             canAdapter.send(frame);
         } catch (CanAdapterException e) {
-            e.printStackTrace();
+            Log.e(TAG, "Unable to send CAN frame", e);
         }
     }
 

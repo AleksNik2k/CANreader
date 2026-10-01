@@ -6,10 +6,10 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.CompoundButton;
-import android.widget.Switch;
 import android.widget.TextView;
 
 import com.autowp.can.CanFrame;
+import com.google.android.material.materialswitch.MaterialSwitch;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -87,7 +87,7 @@ public class TransmitCanFrameListAdapter extends ArrayAdapter<TransmitCanFrame> 
         TextView textViewCount = (TextView) v.findViewById(R.id.listitem_transmit_count);
         textViewCount.setText(String.format(Locale.getDefault(), "%d", frame.getCount()));
 
-        Switch switchEnabled = (Switch) v.findViewById(R.id.listitem_transmit_switch);
+        MaterialSwitch switchEnabled = (MaterialSwitch) v.findViewById(R.id.listitem_transmit_switch);
         if (frame.isEnabled() != switchEnabled.isChecked()) {
             switchEnabled.setOnCheckedChangeListener(null);
             switchEnabled.setChecked(frame.isEnabled());
@@ -112,9 +112,9 @@ public class TransmitCanFrameListAdapter extends ArrayAdapter<TransmitCanFrame> 
 
             TextView textViewID = (TextView) v.findViewById(R.id.listitem_transmit_id);
             if (canFrame.isExtended()) {
-                textViewID.setText(String.format("%08X", canFrame.getId()));
+                textViewID.setText(String.format(Locale.ROOT, "%08X", canFrame.getId()));
             } else {
-                textViewID.setText(String.format("%03X", canFrame.getId()));
+                textViewID.setText(String.format(Locale.ROOT, "%03X", canFrame.getId()));
             }
             textViewID.setOnClickListener(new View.OnClickListener() {
                 @Override
@@ -160,7 +160,7 @@ public class TransmitCanFrameListAdapter extends ArrayAdapter<TransmitCanFrame> 
 
                 for (int i=0; i<data.length; i++) {
                     TextView textViewData = (TextView) v.findViewById(textViewDataID[i]);
-                    textViewData.setText(String.format("%02X", data[i]));
+                    textViewData.setText(String.format(Locale.ROOT, "%02X", data[i] & 0xFF));
                 }
 
                 for (int i=data.length; i<CanFrame.MAX_DLC; i++) {
@@ -171,7 +171,7 @@ public class TransmitCanFrameListAdapter extends ArrayAdapter<TransmitCanFrame> 
 
 
 
-            Switch switchEnabled = (Switch) v.findViewById(R.id.listitem_transmit_switch);
+            MaterialSwitch switchEnabled = (MaterialSwitch) v.findViewById(R.id.listitem_transmit_switch);
             switchEnabled.setEnabled(mConnected);
             switchEnabled.setTag(position);
 

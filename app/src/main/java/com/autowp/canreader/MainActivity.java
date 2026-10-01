@@ -1,39 +1,53 @@
 package com.autowp.canreader;
 
-import android.app.Activity;
-import android.content.ContentResolver;
-import android.content.Intent;
 import android.net.Uri;
+import android.content.Intent;
 import android.os.Bundle;
-import android.os.Environment;
-import android.support.v4.content.FileProvider;
-import android.support.v7.widget.Toolbar;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.core.content.FileProvider;
+import androidx.appcompat.widget.Toolbar;
+import androidx.fragment.app.Fragment;
+import androidx.lifecycle.Lifecycle;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Toast;
 
-import org.apache.commons.configuration.ConfigurationException;
+import com.google.android.material.tabs.TabLayout;
+
+import org.apache.commons.configuration2.ex.ConfigurationException;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.List;
 
 public class MainActivity extends ServiceConnectedActivity {
-    private static final int ACTION_PICK_TXL_TO_SHARE = 1;
+    private static final String TAG_MONITOR = "monitor";
+    private static final String TAG_TRANSMIT = "transmit";
+    private static final String STATE_SELECTED_TAB = "selected_tab";
 
     private List<TransmitCanFrame> mTxListToLoad = null;
+    private int selectedTab;
+    private final ActivityResultLauncher<String> createTxListLauncher =
+            registerForActivityResult(
+                    new ActivityResultContracts.CreateDocument("application/octet-stream"),
+                    this::exportTxList
+            );
+    private final ActivityResultLauncher<String[]> openTxListLauncher =
+            registerForActivityResult(
+                    new ActivityResultContracts.OpenDocument(),
+                    this::importTxList
+            );
 
     private CanReaderService.OnTransmitChangeListener mOnTransmitChangeListener = new CanReaderService.OnTransmitChangeListener() {
 
         @Override
         public void handleTransmitUpdated() {
-            System.out.println("handleTransmitUpdated");
-            //supportInvalidateOptionsMenu(); //TODO: invalidate only if add/remove
-            invalidateOptionsMenu();
+            runOnUiThread(MainActivity.this::invalidateOptionsMenu);
         }
 
         @Override
@@ -53,55 +67,89 @@ public class MainActivity extends ServiceConnectedActivity {
         Toolbar myToolbar = (Toolbar) findViewById(R.id.my_toolbar);
         setSupportActionBar(myToolbar);
 
+        TabLayout tabs = (TabLayout) findViewById(R.id.main_tabs);
+        tabs.addTab(tabs.newTab().setText(R.string.tab_monitor));
+        tabs.addTab(tabs.newTab().setText(R.string.tab_transmit));
+        selectedTab = savedInstanceState == null ? 0
+                : Math.max(0, Math.min(1, savedInstanceState.getInt(STATE_SELECTED_TAB)));
+        initializeMainFragments(savedInstanceState == null);
+        tabs.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
+            @Override
+            public void onTabSelected(TabLayout.Tab tab) {
+                showMainTab(tab.getPosition());
+            }
+
+            @Override
+            public void onTabUnselected(TabLayout.Tab tab) {
+            }
+
+            @Override
+            public void onTabReselected(TabLayout.Tab tab) {
+            }
+        });
+        tabs.selectTab(tabs.getTabAt(selectedTab));
+        showMainTab(selectedTab);
+
         Intent intent = getIntent();
-        String action = intent.getAction();
-
-        if (action.compareTo(Intent.ACTION_VIEW) == 0) {
-            String scheme = intent.getScheme();
-            ContentResolver resolver = getContentResolver();
-
-            if (scheme.compareTo(ContentResolver.SCHEME_CONTENT) == 0) {
-                Uri uri = intent.getData();
-
-                Log.v("tag" , "Content intent detected: " + action + " : " + intent.getDataString() + " : " + intent.getType());
-                try {
-                    InputStream input = resolver.openInputStream(uri);
-
-                    mTxListToLoad = TxListFile.read(input);
-
-                    input.close();
-
-                } catch (ConfigurationException | IOException e) {
-                    e.printStackTrace();
-                    Toast toast = Toast.makeText(getApplicationContext(), e.getMessage(), Toast.LENGTH_SHORT);
-                    toast.show();
+        Uri uri = intent.getData();
+        if (Intent.ACTION_VIEW.equals(intent.getAction()) && uri != null) {
+            Log.v("CANreader", "Importing transmit list from " + uri);
+            try (InputStream input = getContentResolver().openInputStream(uri)) {
+                if (input == null) {
+                    throw new IOException("Unable to open transmit list");
                 }
-            }
-            else if (scheme.compareTo(ContentResolver.SCHEME_FILE) == 0) {
-                Uri uri = intent.getData();
-                String name = uri.getLastPathSegment();
-
-                Log.v("tag" , "File intent detected: " + action + " : " + intent.getDataString() + " : " + intent.getType() + " : " + name);
-                try {
-                    InputStream input = resolver.openInputStream(uri);
-
-                    mTxListToLoad = TxListFile.read(input);
-
-                    input.close();
-
-                } catch (ConfigurationException | IOException e) {
-                    e.printStackTrace();
-                    Toast toast = Toast.makeText(getApplicationContext(), e.getMessage(), Toast.LENGTH_SHORT);
-                    toast.show();
-                }
-            }
-            else if (scheme.compareTo("http") == 0) {
-                // TODO Import from HTTP!
-            }
-            else if (scheme.compareTo("ftp") == 0) {
-                // TODO Import from FTP!
+                mTxListToLoad = TxListFile.read(input);
+            } catch (ConfigurationException | IOException e) {
+                Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
             }
         }
+    }
+
+    private void initializeMainFragments(boolean createFragments) {
+        androidx.fragment.app.FragmentManager fragmentManager = getSupportFragmentManager();
+        Fragment monitor = fragmentManager.findFragmentByTag(TAG_MONITOR);
+        Fragment transmit = fragmentManager.findFragmentByTag(TAG_TRANSMIT);
+        if (createFragments && monitor == null && transmit == null) {
+            monitor = new MonitorFragment();
+            transmit = new TransmitFragment();
+            fragmentManager.beginTransaction()
+                    .setReorderingAllowed(true)
+                    .add(R.id.main_fragment_container, monitor, TAG_MONITOR)
+                    .add(R.id.main_fragment_container, transmit, TAG_TRANSMIT)
+                    .hide(selectedTab == 0 ? transmit : monitor)
+                    .setMaxLifecycle(selectedTab == 0 ? transmit : monitor, Lifecycle.State.STARTED)
+                    .commitNow();
+        }
+    }
+
+    private void showMainTab(int position) {
+        androidx.fragment.app.FragmentManager fragmentManager = getSupportFragmentManager();
+        Fragment monitor = fragmentManager.findFragmentByTag(TAG_MONITOR);
+        Fragment transmit = fragmentManager.findFragmentByTag(TAG_TRANSMIT);
+        if (monitor == null || transmit == null) {
+            return;
+        }
+
+        androidx.fragment.app.FragmentTransaction transaction = fragmentManager.beginTransaction()
+                .setReorderingAllowed(true);
+        if (position == 0) {
+            transaction.show(monitor).hide(transmit)
+                .setMaxLifecycle(monitor, Lifecycle.State.RESUMED)
+                .setMaxLifecycle(transmit, Lifecycle.State.STARTED);
+        } else {
+            transaction.show(transmit).hide(monitor)
+                .setMaxLifecycle(transmit, Lifecycle.State.RESUMED)
+                .setMaxLifecycle(monitor, Lifecycle.State.STARTED);
+        }
+        transaction.commit();
+        selectedTab = position;
+        invalidateOptionsMenu();
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        outState.putInt(STATE_SELECTED_TAB, selectedTab);
+        super.onSaveInstanceState(outState);
     }
 
 
@@ -133,162 +181,90 @@ public class MainActivity extends ServiceConnectedActivity {
         return true;
     }
 
-    /* Checks if external storage is available for read and write */
-    public boolean isExternalStorageWritable() {
-        String state = Environment.getExternalStorageState();
-        if (Environment.MEDIA_MOUNTED.equals(state)) {
-            return true;
-        }
-        return false;
-    }
-
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        switch (item.getItemId()) {
-            case R.id.action_connection: {
-                Intent intent = new Intent(this, ConnectionActivity.class);
-                startActivity(intent);
-                return true;
+        int itemId = item.getItemId();
+        if (itemId == R.id.action_connection) {
+            startActivity(new Intent(this, ConnectionActivity.class));
+            return true;
+        } else if (itemId == R.id.action_settings) {
+            return true;
+        } else if (itemId == R.id.action_about) {
+            startActivity(new Intent(this, AboutActivity.class));
+            return true;
+        } else if (itemId == R.id.action_export_tx_list) {
+            if (bound) {
+                createTxListLauncher.launch("tx-list." + TxListFile.EXTENSION);
             }
-
-            case R.id.action_settings:
-                return true;
-
-            case R.id.action_about: {
-                Intent intent = new Intent(this, AboutActivity.class);
-                startActivity(intent);
-                return true;
-            }
-
-            case R.id.action_export_tx_list: {
-                if (bound) {
-
-                    try {
-                        File filesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
-
-                        for (int i=1; true; i++) {
-                            String filename = String.format("tx-list-%d.%s", i, TxListFile.EXTENSION);
-                            File file = new File(filesDir, filename);
-
-                            /*if (!file.canWrite()) {
-                                throw new IOException("Can't write file " + file.getAbsolutePath());
-                            }*/
-
-                            if (!file.exists()) {
-                                file.createNewFile();
-                                FileOutputStream outputStream = new FileOutputStream(file);
-                                TxListFile.write(outputStream, canReaderService.getTransmitFrames());
-
-                                String message = String.format(getString(R.string.message_file_saved_to_documents), file.getName());
-
-                                Toast toast = Toast.makeText(getApplicationContext(), message, Toast.LENGTH_SHORT);
-                                toast.show();
-                                break;
-                            }
-                        }
-
-
-
-                    } catch (ConfigurationException | IOException e) {
-                        e.printStackTrace();
-
-                        Toast toast = Toast.makeText(getApplicationContext(), e.getMessage(), Toast.LENGTH_SHORT);
-                        toast.show();
+            return true;
+        } else if (itemId == R.id.action_share_tx_list) {
+            if (bound) {
+                try {
+                    File txlDir = new File(getCacheDir(), "txl");
+                    if (!txlDir.isDirectory() && !txlDir.mkdirs()) {
+                        throw new IOException("Unable to create share directory");
                     }
-                }
-                break;
-            }
 
-            case R.id.action_share_tx_list: {
-
-                if (bound) {
-
-                    try {
-                        File privateRootDir = getCacheDir();
-                        File txlDir = new File(privateRootDir, "txl");
-                        if (!txlDir.exists()) {
-                            txlDir.mkdirs();
-                        }
-
-                        File file = new File(txlDir, "tx-share." + TxListFile.EXTENSION);
-
-                        file.createNewFile();
-
-
-                        if (!file.canWrite()) {
-                            throw new IOException("Can't write file " + file.getAbsolutePath());
-                        }
-
-                        FileOutputStream outputStream = new FileOutputStream(file);
-
-                        TxListFile.write(outputStream, canReaderService.getTransmitFrames());
-
-                        Uri fileUri = FileProvider.getUriForFile(
-                                MainActivity.this,
-                                "com.autowp.canreader.txlfileprovider",
-                                file);
-
-                        Intent shareIntent = new Intent();
-                        shareIntent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                        shareIntent.setAction(Intent.ACTION_SEND);
-                        shareIntent.putExtra(Intent.EXTRA_STREAM, fileUri);
-                        shareIntent.setType("*/*");
-                        startActivity(Intent.createChooser(shareIntent, "Share Tx list"));
-
-                    } catch (ConfigurationException | IOException e) {
-                        e.printStackTrace();
-
-                        Toast toast = Toast.makeText(getApplicationContext(), e.getMessage(), Toast.LENGTH_SHORT);
-                        toast.show();
+                    File file = new File(txlDir, "tx-share." + TxListFile.EXTENSION);
+                    try (OutputStream output = new FileOutputStream(file)) {
+                        TxListFile.write(output, canReaderService.getTransmitFrames());
                     }
+
+                    Uri fileUri = FileProvider.getUriForFile(
+                            this,
+                            "com.autowp.canreader.txlfileprovider",
+                            file);
+                    Intent shareIntent = new Intent(Intent.ACTION_SEND);
+                    shareIntent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    shareIntent.putExtra(Intent.EXTRA_STREAM, fileUri);
+                    shareIntent.setType("application/octet-stream");
+                    startActivity(Intent.createChooser(shareIntent, getString(R.string.action_share_tx_list)));
+                } catch (ConfigurationException | IOException e) {
+                    Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
                 }
-                break;
             }
-
-            case R.id.action_import_tx_list: {
-
-                if (bound) {
-                    Intent intent = new Intent(this, TxlPickerActivity.class);
-                    startActivityForResult(intent, ACTION_PICK_TXL_TO_SHARE);
-                }
-
-                return true;
+            return true;
+        } else if (itemId == R.id.action_import_tx_list) {
+            if (bound) {
+                openTxListLauncher.launch(new String[]{"*/*"});
             }
+            return true;
         }
 
         return super.onOptionsItemSelected(item);
     }
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if (data == null) {return;}
+    private void exportTxList(Uri uri) {
+        if (uri == null || !bound) {
+            return;
+        }
 
-        if (requestCode == ACTION_PICK_TXL_TO_SHARE) {
-
-            if (resultCode == Activity.RESULT_OK) {
-
-                try {
-
-                    String filename = data.getStringExtra(TxlPickerActivity.EXTRA_FILENAME);
-
-                    File file = new File(Environment.getExternalStoragePublicDirectory(
-                            Environment.DIRECTORY_DOCUMENTS), filename);
-
-                    FileInputStream inputStream = new FileInputStream(file);
-
-                    List<TransmitCanFrame> list = TxListFile.read(inputStream);
-
-                    inputStream.close();
-
-                    canReaderService.setTransmitFrames(list);
-
-                } catch (IOException | ConfigurationException e) {
-                    e.printStackTrace();
-
-                    Toast toast = Toast.makeText(getApplicationContext(), e.getMessage(), Toast.LENGTH_SHORT);
-                    toast.show();
-                }
+        try {
+            OutputStream output = getContentResolver().openOutputStream(uri);
+            if (output == null) {
+                throw new IOException("Unable to open destination");
             }
+            try (OutputStream stream = output) {
+                TxListFile.write(stream, canReaderService.getTransmitFrames());
+            }
+            Toast.makeText(this, R.string.tx_list_exported, Toast.LENGTH_SHORT).show();
+        } catch (ConfigurationException | IOException e) {
+            Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void importTxList(Uri uri) {
+        if (uri == null || !bound) {
+            return;
+        }
+
+        try (InputStream input = getContentResolver().openInputStream(uri)) {
+            if (input == null) {
+                throw new IOException("Unable to open selected file");
+            }
+            canReaderService.setTransmitFrames(TxListFile.read(input));
+        } catch (ConfigurationException | IOException e) {
+            Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -300,6 +276,7 @@ public class MainActivity extends ServiceConnectedActivity {
         }
 
         canReaderService.addListener(mOnTransmitChangeListener);
+        invalidateOptionsMenu();
     }
 
     @Override
