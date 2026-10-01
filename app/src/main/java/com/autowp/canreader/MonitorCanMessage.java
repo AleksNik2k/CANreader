@@ -40,7 +40,7 @@ public class MonitorCanMessage {
 
                 prev = current;
             }
-            period = (int) (sum / size);
+            period = (int) (sum / (size - 1));
         }
 
         if (times.size() > TIME_MEMORY) {

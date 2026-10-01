@@ -13,9 +13,13 @@ import androidx.appcompat.app.AppCompatActivity;
 public abstract class ServiceConnectedFragment extends Fragment {
     protected CanReaderService canReaderService;
     protected boolean bound = false;
+    private boolean bindingRequested = false;
 
     ServiceConnection serviceConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName name, IBinder binder) {
+            if (!bindingRequested || !isResumed()) {
+                return;
+            }
             canReaderService = ((CanReaderService.TransferServiceBinder) binder).getService();
             bound = true;
 
@@ -23,9 +27,11 @@ public abstract class ServiceConnectedFragment extends Fragment {
         }
 
         public void onServiceDisconnected(ComponentName name) {
-            beforeDisconnect();
-
+            if (bound) {
+                beforeDisconnect();
+            }
             bound = false;
+            canReaderService = null;
         }
     };
 
@@ -34,10 +40,12 @@ public abstract class ServiceConnectedFragment extends Fragment {
     {
         super.onResume();
 
-        Intent intent = new Intent(getActivity(), CanReaderService.class);
-
-        getActivity().startService(intent);
-        getActivity().bindService(intent, serviceConnection, AppCompatActivity.BIND_AUTO_CREATE);
+        if (!bindingRequested) {
+            Intent intent = new Intent(requireActivity(), CanReaderService.class);
+            requireActivity().startService(intent);
+            bindingRequested = requireActivity().bindService(
+                    intent, serviceConnection, AppCompatActivity.BIND_AUTO_CREATE);
+        }
     }
 
     @Override
@@ -47,9 +55,13 @@ public abstract class ServiceConnectedFragment extends Fragment {
 
         if (bound) {
             beforeDisconnect();
-            getActivity().unbindService(serviceConnection);
-            bound = false;
         }
+        if (bindingRequested) {
+            bindingRequested = false;
+            requireActivity().unbindService(serviceConnection);
+        }
+        bound = false;
+        canReaderService = null;
     }
 
     abstract protected void afterConnect();

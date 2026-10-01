@@ -48,12 +48,17 @@ public class MonitorFragment extends ServiceConnectedFragment {
                 activity.runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
+                        if (mListView == null || adapter == null) {
+                            return;
+                        }
                         int start = mListView.getFirstVisiblePosition();
                         int end = mListView.getLastVisiblePosition();
                         for(int i=start; i<=end; i++)
                             if (message == mListView.getItemAtPosition(i)){
                                 View view = mListView.getChildAt(i-start);
-                                adapter.updateView(view, message);
+                                if (view != null) {
+                                    adapter.updateView(view, message);
+                                }
                                 break;
                             }
                     }
@@ -68,7 +73,11 @@ public class MonitorFragment extends ServiceConnectedFragment {
                 activity.runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        TextView tv = (TextView)getView().findViewById(R.id.textViewMonitorSpeed);
+                        View view = getView();
+                        if (view == null) {
+                            return;
+                        }
+                        TextView tv = (TextView)view.findViewById(R.id.textViewMonitorSpeed);
                         if (tv != null) {
                             tv.setText(String.format(Locale.getDefault(), "%.2f frames/sec", speed));
                         }
@@ -122,7 +131,9 @@ public class MonitorFragment extends ServiceConnectedFragment {
     @Override
     protected void beforeDisconnect() {
         canReaderService.removeListener(mOnMonitorChangedListener);
-        mListView.setAdapter(null);
+        if (mListView != null) {
+            mListView.setAdapter(null);
+        }
         adapter = null;
     }
 
@@ -138,29 +149,43 @@ public class MonitorFragment extends ServiceConnectedFragment {
 
     @Override
     public boolean onContextItemSelected(MenuItem item) {
-        if (isVisible()) {
-            AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) item.getMenuInfo();
+        if (isVisible() && bound && canReaderService != null && adapter != null) {
             int itemId = item.getItemId();
             if (itemId == R.id.action_monitor_delete) {
-                canReaderService.removeMonitor(info.position);
-                return true;
-            } else if (itemId == R.id.action_monitor_copy) {
-                MonitorCanMessage message = adapter.getItem(info.position);
-                if (message != null) {
-                    ClipboardManager clipboard = (ClipboardManager) getActivity()
-                            .getSystemService(Context.CLIPBOARD_SERVICE);
-                    ClipData clip = ClipData.newPlainText("CAN message", message.getCanMessage().toString());
-                    clipboard.setPrimaryClip(clip);
+                AdapterView.AdapterContextMenuInfo info = getContextMenuInfo(item);
+                if (info != null && info.position >= 0 && info.position < adapter.getCount()) {
+                    canReaderService.removeMonitor(info.position);
+                    return true;
                 }
-            } else if (itemId == R.id.action_monitor_focus) {
+            } else if (itemId == R.id.action_monitor_copy || itemId == R.id.action_monitor_focus) {
+                AdapterView.AdapterContextMenuInfo info = getContextMenuInfo(item);
+                if (info == null || info.position < 0 || info.position >= adapter.getCount()) {
+                    return super.onContextItemSelected(item);
+                }
                 MonitorCanMessage message = adapter.getItem(info.position);
                 if (message != null) {
-                    Intent intent = new Intent(getActivity(), MessageActivity.class);
-                    intent.putExtra(MessageActivity.EXTRA_CAN_ID, message.getCanMessage().getId());
-                    startActivity(intent);
+                    if (itemId == R.id.action_monitor_copy) {
+                        ClipboardManager clipboard = (ClipboardManager) getActivity()
+                                .getSystemService(Context.CLIPBOARD_SERVICE);
+                        ClipData clip = ClipData.newPlainText("CAN message", message.getCanMessage().toString());
+                        clipboard.setPrimaryClip(clip);
+                        return true;
+                    } else {
+                        Intent intent = new Intent(getActivity(), MessageActivity.class);
+                        intent.putExtra(MessageActivity.EXTRA_CAN_ID, message.getCanMessage().getId());
+                        startActivity(intent);
+                        return true;
+                    }
                 }
             }
         }
         return super.onContextItemSelected(item);
+    }
+
+    private AdapterView.AdapterContextMenuInfo getContextMenuInfo(MenuItem item) {
+        if (item.getMenuInfo() instanceof AdapterView.AdapterContextMenuInfo) {
+            return (AdapterView.AdapterContextMenuInfo) item.getMenuInfo();
+        }
+        return null;
     }
 }

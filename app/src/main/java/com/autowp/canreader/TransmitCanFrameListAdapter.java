@@ -38,8 +38,18 @@ public class TransmitCanFrameListAdapter extends ArrayAdapter<TransmitCanFrame> 
     private CompoundButton.OnCheckedChangeListener mCheckedChangeListener = new CompoundButton.OnCheckedChangeListener() {
         @Override
         public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-            int position = (int) buttonView.getTag();
+            Object tag = buttonView.getTag();
+            if (!(tag instanceof Integer)) {
+                return;
+            }
+            int position = (Integer) tag;
+            if (position < 0 || position >= getCount()) {
+                return;
+            }
             TransmitCanFrame frame = getItem(position);
+            if (frame == null) {
+                return;
+            }
             if (frame.isEnabled() != isChecked) {
                 frame.setEnabled(isChecked);
                 triggerOnTransmitCanFrameChange(position, frame);

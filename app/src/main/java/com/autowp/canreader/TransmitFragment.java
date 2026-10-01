@@ -146,9 +146,21 @@ public class TransmitFragment extends ServiceConnectedFragment
 
     @Override
     public boolean onContextItemSelected(MenuItem item) {
-        if (isVisible()) {
-            AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) item.getMenuInfo();
+        if (isVisible() && bound && canReaderService != null && adapter != null) {
             int itemId = item.getItemId();
+            if (itemId == R.id.action_transmit_clear) {
+                canReaderService.clearTransmits();
+                updateButtons();
+                return true;
+            } else if (itemId == R.id.action_transmit_reset_all) {
+                canReaderService.resetTransmits();
+                return true;
+            }
+
+            AdapterView.AdapterContextMenuInfo info = getContextMenuInfo(item);
+            if (info == null || info.position < 0 || info.position >= adapter.getCount()) {
+                return super.onContextItemSelected(item);
+            }
             if (itemId == R.id.action_transmit_delete) {
                 canReaderService.removeTransmit(info.position);
                 updateButtons();
@@ -163,13 +175,6 @@ public class TransmitFragment extends ServiceConnectedFragment
                     newDialog.show(getParentFragmentManager(), "edit_transmit");
                 }
                 return true;
-            } else if (itemId == R.id.action_transmit_clear) {
-                canReaderService.clearTransmits();
-                updateButtons();
-                return true;
-            } else if (itemId == R.id.action_transmit_reset_all) {
-                canReaderService.resetTransmits();
-                return true;
             } else if (itemId == R.id.action_transmit_reset) {
                 TransmitCanFrame frame = adapter.getItem(info.position);
                 if (frame != null) {
@@ -183,10 +188,18 @@ public class TransmitFragment extends ServiceConnectedFragment
                             .getSystemService(Context.CLIPBOARD_SERVICE);
                     ClipData clip = ClipData.newPlainText("CAN frame", frame.getCanFrame().toString());
                     clipboard.setPrimaryClip(clip);
+                    return true;
                 }
             }
         }
         return super.onContextItemSelected(item);
+    }
+
+    private AdapterView.AdapterContextMenuInfo getContextMenuInfo(MenuItem item) {
+        if (item.getMenuInfo() instanceof AdapterView.AdapterContextMenuInfo) {
+            return (AdapterView.AdapterContextMenuInfo) item.getMenuInfo();
+        }
+        return null;
     }
 
     @Override
@@ -333,7 +346,9 @@ public class TransmitFragment extends ServiceConnectedFragment
                     for(int i=start; i<=end; i++)
                         if (frame == mListView.getItemAtPosition(i)){
                             View view = mListView.getChildAt(i-start);
-                            adapter.updateView(view, frame);
+                            if (view != null) {
+                                adapter.updateView(view, frame);
+                            }
                             break;
                         }
                 }
@@ -348,7 +363,11 @@ public class TransmitFragment extends ServiceConnectedFragment
             activity.runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    TextView tv = (TextView)getView().findViewById(R.id.textViewTransmitSpeed2);
+                    View view = getView();
+                    if (view == null) {
+                        return;
+                    }
+                    TextView tv = (TextView)view.findViewById(R.id.textViewTransmitSpeed2);
                     if (tv != null) {
                         tv.setText(String.format(Locale.getDefault(), "%.2f frames/sec", speed));
                     }
