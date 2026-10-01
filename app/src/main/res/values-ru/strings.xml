@@ -16,7 +16,6 @@
     <string name="action_stop_all">Стоп</string>
     <string name="connect">Соединить</string>
     <string name="disconnect">Разъединить</string>
-    <string name="reset">Сброс</string>
     <string name="about">О программе</string>
     <string name="versions">Версия: %1$s (код версии %2$d)</string>
     <string name="action_connection">Соединение</string>
@@ -26,12 +25,35 @@
     <string name="action_import_tx_list">Импортировать Tx list</string>
     <string name="action_share_tx_list">Отправить Tx list</string>
     <string name="export_tx_list">Экспортировать Tx list</string>
-    <string name="message_file_saved_to_documents">Файл %s сохранён в Документы</string>
-    <string name="choose_file_to_import">Выберите файл для импорта</string>
     <string name="action_transmit_copy">Копировать</string>
     <string name="conection_usb_serial">USB serial</string>
     <string name="connection_loopback">Loopback</string>
     <string name="action_monitor_focus">Фокусировать</string>
     <string name="connection_udp">Network</string>
     <string name="connection_bluetooth">Bluetooth</string>
+    <string name="tab_monitor">Монитор</string>
+    <string name="tab_transmit">Передача</string>
+    <string name="connection_can_baudrate">Скорость CAN</string>
+    <string name="connection_serial_baudrate">Скорость USB-порта</string>
+    <string name="connection_usb_device">USB-устройство</string>
+    <string name="connection_bluetooth_device">Устройство Bluetooth</string>
+    <string name="connection_host">Сетевой адрес</string>
+    <string name="connection_host_hint">Имя узла или IP-адрес</string>
+    <string name="can_dlc">Длина данных</string>
+    <string name="tx_list_exported">Список кадров экспортирован</string>
+    <string name="bluetooth_permission_required">Для списка сопряжённых устройств нужен доступ к Bluetooth</string>
+    <string name="bluetooth_not_supported">Это устройство не поддерживает Bluetooth</string>
+    <string name="validation_period_too_high">Период не должен превышать %1$d мс</string>
+    <string name="validation_period_negative">Период не может быть отрицательным</string>
+    <string name="validation_dlc_range">Допустимый диапазон DLC: %1$d-%2$d</string>
+    <string name="validation_can_id_max">Максимальный CAN ID: %1$s</string>
+    <string name="validation_invalid_number">Введите корректное число</string>
+    <string name="validation_data_empty">Введите хотя бы один байт данных</string>
+    <string name="validation_hex_data">Введите чётное количество шестнадцатеричных цифр</string>
+    <plurals name="validation_data_too_long">
+        <item quantity="one">Длина данных не должна превышать %1$d байт</item>
+        <item quantity="few">Длина данных не должна превышать %1$d байта</item>
+        <item quantity="many">Длина данных не должна превышать %1$d байт</item>
+        <item quantity="other">Длина данных не должна превышать %1$d байта</item>
+    </plurals>
 </resources>

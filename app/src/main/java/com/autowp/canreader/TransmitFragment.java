@@ -3,9 +3,11 @@ package com.autowp.canreader;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
-import android.content.Intent;
 import android.os.Bundle;
-import android.support.v4.app.FragmentActivity;
+import android.util.Log;
+import androidx.core.view.MenuProvider;
+import androidx.fragment.app.FragmentActivity;
+import androidx.lifecycle.Lifecycle;
 import android.view.ContextMenu;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -21,27 +23,34 @@ import android.widget.TextView;
 import com.autowp.can.CanAdapter;
 import com.autowp.can.CanFrameException;
 
+import java.util.Locale;
+
 public class TransmitFragment extends ServiceConnectedFragment
         implements CanReaderService.OnConnectionStateChangedListener,
         CanReaderService.OnTransmitChangeListener
 {
-    private static final int REQUEST_CODE_NEW = 1;
-    private static final int REQUEST_CODE_EDIT = 2;
     private TransmitCanFrameListAdapter adapter;
 
     private ListView mListView;
+    private Bundle pendingDialogResult;
 
     public TransmitFragment() {
 
     }
 
     @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        getParentFragmentManager().setFragmentResultListener(
+                TransmitCanFrameDialog.TRANSMIT_DIALOG_BUNDLE,
+                this,
+                (requestKey, result) -> handleTransmitDialogResult(result)
+        );
+    }
+
+    @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-
-        //context = container.getContext();
-
-        // Inflate the layout for this fragment
         View view = inflater.inflate(R.layout.fragment_transmit, container, false);
 
         Button buttonNewTransmit = (Button) view.findViewById(R.id.buttonNewTransmit);
@@ -49,8 +58,7 @@ public class TransmitFragment extends ServiceConnectedFragment
             @Override
             public void onClick(View v) {
                 TransmitCanFrameDialog newDialog = new TransmitCanFrameDialog();
-                newDialog.setTargetFragment(TransmitFragment.this, REQUEST_CODE_NEW);
-                newDialog.show(getFragmentManager(), "new_transmit");
+                newDialog.show(getParentFragmentManager(), "new_transmit");
             }
         });
 
@@ -77,22 +85,53 @@ public class TransmitFragment extends ServiceConnectedFragment
 
     private void updateButtons()
     {
-        boolean isConnected = canReaderService.getConnectionState() == CanAdapter.ConnectionState.CONNECTED;
+        View view = getView();
+        if (view == null) {
+            return;
+        }
 
-        Button buttonStartAll = (Button) getView().findViewById(R.id.buttonStartAll);
+        boolean serviceAvailable = bound && canReaderService != null;
+        boolean isConnected = serviceAvailable
+                && canReaderService.getConnectionState() == CanAdapter.ConnectionState.CONNECTED;
+
+        view.findViewById(R.id.buttonNewTransmit).setEnabled(serviceAvailable);
+        Button buttonStartAll = view.findViewById(R.id.buttonStartAll);
         buttonStartAll.setEnabled(isConnected && canReaderService.hasStoppedTransmits());
 
-        Button buttonStopAll = (Button) getView().findViewById(R.id.buttonStopAll);
+        Button buttonStopAll = view.findViewById(R.id.buttonStopAll);
         buttonStopAll.setEnabled(isConnected && canReaderService.hasStartedTransmits());
     }
 
     @Override
-    public void onActivityCreated(Bundle savedInstanceState) {
-        super.onActivityCreated(savedInstanceState);
-
-        mListView = (ListView)getView().findViewById(R.id.listViewTransmit);
-
+    public void onViewCreated(View view, Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        mListView = view.findViewById(R.id.listViewTransmit);
         registerForContextMenu(mListView);
+        updateButtons();
+        requireActivity().addMenuProvider(new MenuProvider() {
+            @Override
+            public void onCreateMenu(Menu menu, MenuInflater menuInflater) {
+            }
+
+            @Override
+            public void onPrepareMenu(Menu menu) {
+                boolean hasFrames = bound && canReaderService != null
+                        && !canReaderService.getTransmitFrames().isEmpty();
+                MenuItem resetAll = menu.findItem(R.id.action_transmit_reset_all);
+                MenuItem clear = menu.findItem(R.id.action_transmit_clear);
+                if (resetAll != null) {
+                    resetAll.setEnabled(hasFrames);
+                }
+                if (clear != null) {
+                    clear.setEnabled(hasFrames);
+                }
+            }
+
+            @Override
+            public boolean onMenuItemSelected(MenuItem menuItem) {
+                return false;
+            }
+        }, getViewLifecycleOwner(), Lifecycle.State.RESUMED);
     }
 
     @Override
@@ -106,74 +145,44 @@ public class TransmitFragment extends ServiceConnectedFragment
     }
 
     @Override
-    public void onPrepareOptionsMenu(Menu menu)
-    {
-        super.onPrepareOptionsMenu(menu);
-
-        boolean isConnected = canReaderService.getConnectionState() == CanAdapter.ConnectionState.CONNECTED;
-
-        /*Button buttonStartAll = (Button) getView().findViewById(R.id.buttonStartAll);
-        buttonStartAll.setEnabled(isConnected && canReaderService.hasStoppedTransmits());
-
-        Button buttonStopAll = (Button) getView().findViewById(R.id.buttonStopAll);
-        buttonStopAll.setEnabled(isConnected && canReaderService.hasStartedTransmits());
-*/
-
-        menu.findItem(R.id.action_transmit_reset_all).setEnabled(canReaderService.getTransmitFrames().size() > 0);
-        menu.findItem(R.id.action_transmit_clear).setEnabled(canReaderService.getTransmitFrames().size() > 0);
-
-
-    }
-
-    @Override
     public boolean onContextItemSelected(MenuItem item) {
-        if (getUserVisibleHint()) {
+        if (isVisible()) {
             AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) item.getMenuInfo();
-            switch (item.getItemId()) {
-                case R.id.action_transmit_delete: {
-                    canReaderService.removeTransmit(info.position);
-                    updateButtons();
-                    return true;
+            int itemId = item.getItemId();
+            if (itemId == R.id.action_transmit_delete) {
+                canReaderService.removeTransmit(info.position);
+                updateButtons();
+                return true;
+            } else if (itemId == R.id.action_transmit_edit) {
+                TransmitCanFrame frame = adapter.getItem(info.position);
+                if (frame != null) {
+                    TransmitCanFrameDialog newDialog = new TransmitCanFrameDialog();
+                    Bundle bundle = frame.toBundle();
+                    bundle.putInt(TransmitCanFrameDialog.BUNDLE_EXTRA_POSITION, info.position);
+                    newDialog.setArguments(bundle);
+                    newDialog.show(getParentFragmentManager(), "edit_transmit");
                 }
-                case R.id.action_transmit_edit: {
-                    TransmitCanFrame frame = adapter.getItem(info.position);
-                    if (frame != null) {
-
-                        TransmitCanFrameDialog newDialog = new TransmitCanFrameDialog();
-                        newDialog.setTargetFragment(TransmitFragment.this, REQUEST_CODE_EDIT);
-                        Bundle bundle = frame.toBundle();
-                        bundle.putInt(TransmitCanFrameDialog.BUNDLE_EXTRA_POSITION, info.position);
-                        newDialog.setArguments(bundle);
-                        newDialog.show(getFragmentManager(), "edit_transmit");
-                    }
-                    return true;
+                return true;
+            } else if (itemId == R.id.action_transmit_clear) {
+                canReaderService.clearTransmits();
+                updateButtons();
+                return true;
+            } else if (itemId == R.id.action_transmit_reset_all) {
+                canReaderService.resetTransmits();
+                return true;
+            } else if (itemId == R.id.action_transmit_reset) {
+                TransmitCanFrame frame = adapter.getItem(info.position);
+                if (frame != null) {
+                    canReaderService.resetTransmit(frame);
                 }
-                case R.id.action_transmit_clear: {
-                    canReaderService.clearTransmits();
-                    updateButtons();
-                    return true;
-                }
-                case R.id.action_transmit_reset_all: {
-                    canReaderService.resetTransmits();
-                    return true;
-                }
-                case R.id.action_transmit_reset: {
-                    TransmitCanFrame frame = adapter.getItem(info.position);
-                    if (frame != null) {
-                        canReaderService.resetTransmit(frame);
-                    }
-                    return true;
-                }
-
-                case R.id.action_transmit_copy: {
-                    TransmitCanFrame frame = adapter.getItem(info.position);
-                    if (frame != null) {
-
-                        ClipboardManager clipboard = (ClipboardManager) getActivity().getSystemService(Context.CLIPBOARD_SERVICE);
-                        ClipData clip = ClipData.newPlainText("CAN frame", frame.getCanFrame().toString());
-                        clipboard.setPrimaryClip(clip);
-                    }
-                    break;
+                return true;
+            } else if (itemId == R.id.action_transmit_copy) {
+                TransmitCanFrame frame = adapter.getItem(info.position);
+                if (frame != null) {
+                    ClipboardManager clipboard = (ClipboardManager) getActivity()
+                            .getSystemService(Context.CLIPBOARD_SERVICE);
+                    ClipData clip = ClipData.newPlainText("CAN frame", frame.getCanFrame().toString());
+                    clipboard.setPrimaryClip(clip);
                 }
             }
         }
@@ -185,58 +194,47 @@ public class TransmitFragment extends ServiceConnectedFragment
     {
         super.onResume();
 
-        registerForContextMenu(mListView);
         if (canReaderService != null && adapter != null) {
             boolean isConnected = canReaderService.getConnectionState() == CanAdapter.ConnectionState.CONNECTED;
             adapter.setConnected(isConnected);
         }
     }
 
-    public void onActivityResult(int requestCode, int resultCode, Intent intent) {
-        switch (requestCode) {
-            case REQUEST_CODE_NEW: {
-                if (resultCode == 1) {
+    private void handleTransmitDialogResult(Bundle bundle) {
+        if (bundle == null) {
+            return;
+        }
+        if (!bound || adapter == null) {
+            pendingDialogResult = new Bundle(bundle);
+            return;
+        }
 
-                    Bundle bundle = intent.getBundleExtra(TransmitCanFrameDialog.TRANSMIT_DIALOG_BUNDLE);
-
-                    try {
-                        TransmitCanFrame frame = TransmitCanFrame.fromBundle(bundle);
-                        canReaderService.add(frame);
-                    } catch (CanFrameException e) {
-                        e.printStackTrace();
-                    }
-
-                    updateButtons();
+        try {
+            if (!bundle.containsKey(TransmitCanFrameDialog.BUNDLE_EXTRA_POSITION)) {
+                canReaderService.add(TransmitCanFrame.fromBundle(bundle));
+            } else {
+                int position = bundle.getInt(TransmitCanFrameDialog.BUNDLE_EXTRA_POSITION, -1);
+                if (position < 0 || position >= adapter.getCount()) {
+                    Log.w("TransmitFragment", "Ignoring result for missing transmit frame at " + position);
+                    return;
                 }
-                break;
-            }
-
-            case REQUEST_CODE_EDIT: {
-                if (resultCode == 1) {
-
-                    Bundle bundle = intent.getBundleExtra(TransmitCanFrameDialog.TRANSMIT_DIALOG_BUNDLE);
-
-                    //TransmitCanFrame frame = TransmitCanFrame.fromBundle(bundle);
-                    int position = bundle.getInt(TransmitCanFrameDialog.BUNDLE_EXTRA_POSITION);
-                    try {
-                        TransmitCanFrame transmit = adapter.getItem(position);
-                        if (transmit.isEnabled()) {
-                            canReaderService.stopTransmit(transmit);
-                            transmit.setFromBundle(bundle);
-                            canReaderService.startTransmit(transmit);
-                        } else {
-                            transmit.setFromBundle(bundle);
-                        }
-                    } catch (CanFrameException e) {
-                        e.printStackTrace();
-                    }
-
-                    adapter.notifyDataSetChanged();
-
-                    updateButtons();
+                TransmitCanFrame transmit = adapter.getItem(position);
+                if (transmit == null) {
+                    return;
                 }
-                break;
+                boolean wasEnabled = transmit.isEnabled();
+                if (wasEnabled) {
+                    canReaderService.stopTransmit(transmit);
+                }
+                transmit.setFromBundle(bundle);
+                if (wasEnabled) {
+                    canReaderService.startTransmit(transmit);
+                }
+                adapter.notifyDataSetChanged();
             }
+            updateButtons();
+        } catch (CanFrameException e) {
+            Log.e("TransmitFragment", "Unable to apply transmit frame", e);
         }
     }
 
@@ -278,6 +276,11 @@ public class TransmitFragment extends ServiceConnectedFragment
         adapter.notifyDataSetChanged();
 
         updateButtons();
+        if (pendingDialogResult != null) {
+            Bundle result = pendingDialogResult;
+            pendingDialogResult = null;
+            handleTransmitDialogResult(result);
+        }
     }
 
     @Override
@@ -306,7 +309,10 @@ public class TransmitFragment extends ServiceConnectedFragment
             activity.runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    adapter.notifyDataSetChanged();
+                    if (adapter != null) {
+                        adapter.notifyDataSetChanged();
+                    }
+                    activity.invalidateOptionsMenu();
                 }
             });
         }
@@ -319,6 +325,9 @@ public class TransmitFragment extends ServiceConnectedFragment
             activity.runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
+                    if (mListView == null || adapter == null) {
+                        return;
+                    }
                     int start = mListView.getFirstVisiblePosition();
                     int end = mListView.getLastVisiblePosition();
                     for(int i=start; i<=end; i++)
@@ -341,7 +350,7 @@ public class TransmitFragment extends ServiceConnectedFragment
                 public void run() {
                     TextView tv = (TextView)getView().findViewById(R.id.textViewTransmitSpeed2);
                     if (tv != null) {
-                        tv.setText(String.format("%.2f frame/sec", speed));
+                        tv.setText(String.format(Locale.getDefault(), "%.2f frames/sec", speed));
                     }
                 }
             });

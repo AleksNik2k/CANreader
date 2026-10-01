@@ -1,17 +1,18 @@
 <resources>
 
-    <!-- Base application theme. -->
-    <style name="AppTheme" parent="Theme.AppCompat">
-
+    <style name="AppTheme" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/can_primary</item>
+        <item name="colorOnPrimary">@color/can_on_primary</item>
+        <item name="colorSecondary">@color/can_secondary</item>
+        <item name="colorOnSecondary">@color/can_on_secondary</item>
+        <item name="colorTertiary">@color/can_tertiary</item>
+        <item name="colorSurface">@color/can_surface</item>
+        <item name="colorOnSurface">@color/can_on_surface</item>
+        <item name="colorOnSurfaceVariant">@color/can_on_surface_variant</item>
+        <item name="android:statusBarColor">@color/can_surface</item>
+        <item name="android:navigationBarColor">@color/can_surface</item>
     </style>
 
-    <style name="AppTheme.NoActionBar">
-        <item name="windowActionBar">false</item>
-        <item name="windowNoTitle">true</item>
-    </style>
-
-    <style name="AppTheme.AppBarOverlay" parent="ThemeOverlay.AppCompat.Dark.ActionBar" />
-
-    <style name="AppTheme.PopupOverlay" parent="ThemeOverlay.AppCompat" />
+    <style name="AppTheme.NoActionBar" parent="AppTheme" />
 
 </resources>

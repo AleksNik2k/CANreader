@@ -5,7 +5,7 @@ import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
-import android.support.v4.app.FragmentActivity;
+import androidx.fragment.app.FragmentActivity;
 import android.view.ContextMenu;
 import android.view.LayoutInflater;
 import android.view.MenuInflater;
@@ -16,6 +16,8 @@ import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.ListView;
 import android.widget.TextView;
+
+import java.util.Locale;
 
 public class MonitorFragment extends ServiceConnectedFragment {
 
@@ -68,7 +70,7 @@ public class MonitorFragment extends ServiceConnectedFragment {
                     public void run() {
                         TextView tv = (TextView)getView().findViewById(R.id.textViewMonitorSpeed);
                         if (tv != null) {
-                            tv.setText(String.format("%.2f frame/sec", speed));
+                            tv.setText(String.format(Locale.getDefault(), "%.2f frames/sec", speed));
                         }
                     }
                 });
@@ -136,33 +138,26 @@ public class MonitorFragment extends ServiceConnectedFragment {
 
     @Override
     public boolean onContextItemSelected(MenuItem item) {
-        System.out.println("onContextItemSelected");
-        if (getUserVisibleHint()) {
+        if (isVisible()) {
             AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) item.getMenuInfo();
-            switch (item.getItemId()) {
-                case R.id.action_monitor_delete: {
-                    canReaderService.removeMonitor(info.position);
-                    return true;
+            int itemId = item.getItemId();
+            if (itemId == R.id.action_monitor_delete) {
+                canReaderService.removeMonitor(info.position);
+                return true;
+            } else if (itemId == R.id.action_monitor_copy) {
+                MonitorCanMessage message = adapter.getItem(info.position);
+                if (message != null) {
+                    ClipboardManager clipboard = (ClipboardManager) getActivity()
+                            .getSystemService(Context.CLIPBOARD_SERVICE);
+                    ClipData clip = ClipData.newPlainText("CAN message", message.getCanMessage().toString());
+                    clipboard.setPrimaryClip(clip);
                 }
-                case R.id.action_monitor_copy: {
-                    MonitorCanMessage message = adapter.getItem(info.position);
-                    if (message != null) {
-
-                        ClipboardManager clipboard = (ClipboardManager) getActivity().getSystemService(Context.CLIPBOARD_SERVICE);
-                        ClipData clip = ClipData.newPlainText("CAN message", message.getCanMessage().toString());
-                        clipboard.setPrimaryClip(clip);
-                    }
-                    break;
-                }
-                case R.id.action_monitor_focus: {
-                    MonitorCanMessage message = adapter.getItem(info.position);
-                    if (message != null) {
-                        Intent intent = new Intent(getActivity(), MessageActivity.class);
-                        intent.putExtra(MessageActivity.EXTRA_CAN_ID, message.getCanMessage().getId());
-                        startActivity(intent);
-                    }
-
-                    break;
+            } else if (itemId == R.id.action_monitor_focus) {
+                MonitorCanMessage message = adapter.getItem(info.position);
+                if (message != null) {
+                    Intent intent = new Intent(getActivity(), MessageActivity.class);
+                    intent.putExtra(MessageActivity.EXTRA_CAN_ID, message.getCanMessage().getId());
+                    startActivity(intent);
                 }
             }
         }

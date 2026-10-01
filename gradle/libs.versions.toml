@@ -1,0 +1,21 @@
+[versions]
+androidGradlePlugin = "9.4.1"
+appcompat = "1.8.0"
+activity = "1.13.0"
+core = "1.19.1"
+fragment = "1.9.1"
+material = "1.14.0"
+commonsConfiguration = "2.15.1"
+junit = "4.13.2"
+
+[libraries]
+androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
+androidx-activity = { module = "androidx.activity:activity", version.ref = "activity" }
+androidx-core = { module = "androidx.core:core", version.ref = "core" }
+androidx-fragment = { module = "androidx.fragment:fragment", version.ref = "fragment" }
+material = { module = "com.google.android.material:material", version.ref = "material" }
+commons-configuration = { module = "org.apache.commons:commons-configuration2", version.ref = "commonsConfiguration" }
+junit = { module = "junit:junit", version.ref = "junit" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }

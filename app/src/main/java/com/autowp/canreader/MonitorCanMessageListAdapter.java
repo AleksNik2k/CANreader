@@ -1,7 +1,7 @@
 package com.autowp.canreader;
 
 import android.content.Context;
-import android.support.v4.content.ContextCompat;
+import androidx.core.content.ContextCompat;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -42,7 +42,7 @@ public class MonitorCanMessageListAdapter extends ArrayAdapter<MonitorCanMessage
         if (v == null) {
             LayoutInflater vi;
             vi = LayoutInflater.from(getContext());
-            v = vi.inflate(R.layout.listitem_monitor, null);
+            v = vi.inflate(R.layout.listitem_monitor, parent, false);
         }
 
         MonitorCanMessage message = getItem(position);
@@ -52,9 +52,9 @@ public class MonitorCanMessageListAdapter extends ArrayAdapter<MonitorCanMessage
 
             TextView textViewID = (TextView) v.findViewById(R.id.listitem_monitor_id);
             if (canMessage.isExtended()) {
-                textViewID.setText(String.format("%08X", canMessage.getId()));
+                textViewID.setText(String.format(Locale.ROOT, "%08X", canMessage.getId()));
             } else {
-                textViewID.setText(String.format("%03X", canMessage.getId()));
+                textViewID.setText(String.format(Locale.ROOT, "%03X", canMessage.getId()));
             }
 
             updateView(v, message);
@@ -70,7 +70,7 @@ public class MonitorCanMessageListAdapter extends ArrayAdapter<MonitorCanMessage
             if (canMessage.isRTR()) {
 
                 TextView textViewData = (TextView) v.findViewById(R.id.listitem_monitor_dlc);
-                textViewData.setText(String.format("%d", dlc));
+                textViewData.setText(String.format(Locale.getDefault(), "%d", dlc));
 
             } else {
 
@@ -90,13 +90,8 @@ public class MonitorCanMessageListAdapter extends ArrayAdapter<MonitorCanMessage
                 for (int i = 0; i < data.length; i++) {
                     boolean highlight = message.getChangeHolder(i).isHighlight();
                     TextView textViewData = (TextView) v.findViewById(textViewDataID[i]);
-                    textViewData.setText(String.format("%02X", data[i]));
-                    int color;
-                    if (highlight) {
-                        color = android.R.color.holo_blue_dark;
-                    } else {
-                        color = android.R.color.primary_text_dark;
-                    }
+                    textViewData.setText(String.format(Locale.ROOT, "%02X", data[i] & 0xFF));
+                    int color = highlight ? R.color.can_tertiary : R.color.can_on_surface;
                     textViewData.setTextColor(ContextCompat.getColor(getContext(), color));
                 }
 
