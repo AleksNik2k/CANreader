@@ -14,7 +14,8 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Toast;
 
-import com.google.android.material.tabs.TabLayout;
+import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.android.material.appbar.AppBarLayout;
 
 import org.apache.commons.configuration2.ex.ConfigurationException;
 
@@ -25,14 +26,17 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.List;
 
+/**
+ * Main activity with Material Design 3 navigation.
+ * Uses BottomNavigationView for phone, can be extended for tablet split-pane.
+ */
 public class MainActivity extends ServiceConnectedActivity {
-    private static final String TAG_MONITOR = "monitor";
-    private static final String TAG_TRANSMIT = "transmit";
-    private static final String TAG_TRACER = "tracer";
-    private static final String STATE_SELECTED_TAB = "selected_tab";
+    private static final String TAG = "MainActivity";
+    private static final String STATE_SELECTED_NAV = "selected_nav";
 
     private List<TransmitCanFrame> mTxListToLoad = null;
-    private int selectedTab;
+    private int selectedNavId = R.id.fragment_monitor;
+
     private final ActivityResultLauncher<String> createTxListLauncher =
             registerForActivityResult(
                     new ActivityResultContracts.CreateDocument("application/octet-stream"),
@@ -45,19 +49,16 @@ public class MainActivity extends ServiceConnectedActivity {
             );
 
     private CanReaderService.OnTransmitChangeListener mOnTransmitChangeListener = new CanReaderService.OnTransmitChangeListener() {
-
         @Override
         public void handleTransmitUpdated() {
             runOnUiThread(MainActivity.this::invalidateOptionsMenu);
         }
 
         @Override
-        public void handleTransmitUpdated(TransmitCanFrame frame) {
-        }
+        public void handleTransmitUpdated(TransmitCanFrame frame) {}
 
         @Override
-        public void handleSpeedChanged(double speed) {
-        }
+        public void handleSpeedChanged(double speed) {}
     };
 
     @Override
@@ -65,37 +66,50 @@ public class MainActivity extends ServiceConnectedActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        Toolbar myToolbar = (Toolbar) findViewById(R.id.my_toolbar);
+        // Setup Toolbar
+        Toolbar myToolbar = findViewById(R.id.my_toolbar);
         setSupportActionBar(myToolbar);
 
-        TabLayout tabs = (TabLayout) findViewById(R.id.main_tabs);
-        tabs.addTab(tabs.newTab().setText(R.string.tab_monitor));
-        tabs.addTab(tabs.newTab().setText(R.string.tab_transmit));
-        tabs.addTab(tabs.newTab().setText(R.string.tab_tracer));
-        selectedTab = savedInstanceState == null ? 0
-                : Math.max(0, Math.min(2, savedInstanceState.getInt(STATE_SELECTED_TAB)));
-        initializeMainFragments(savedInstanceState == null);
-        tabs.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
-            @Override
-            public void onTabSelected(TabLayout.Tab tab) {
-                showMainTab(tab.getPosition());
-            }
+        // Setup Bottom Navigation
+        BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
+        
+        // Restore selected tab
+        if (savedInstanceState != null) {
+            selectedNavId = savedInstanceState.getInt(STATE_SELECTED_NAV, R.id.fragment_monitor);
+        }
 
-            @Override
-            public void onTabUnselected(TabLayout.Tab tab) {
+        bottomNav.setOnItemSelectedListener(item -> {
+            int itemId = item.getItemId();
+            if (itemId == R.id.fragment_monitor) {
+                showFragment(R.id.fragment_monitor);
+                return true;
+            } else if (itemId == R.id.fragment_stream) {
+                showFragment(R.id.fragment_stream);
+                return true;
+            } else if (itemId == R.id.fragment_transmit) {
+                showFragment(R.id.fragment_transmit);
+                return true;
+            } else if (itemId == R.id.fragment_tracer) {
+                showFragment(R.id.fragment_tracer);
+                return true;
+            } else if (itemId == R.id.fragment_filters) {
+                showFragment(R.id.fragment_filters);
+                return true;
             }
-
-            @Override
-            public void onTabReselected(TabLayout.Tab tab) {
-            }
+            return false;
         });
-        tabs.selectTab(tabs.getTabAt(selectedTab));
-        showMainTab(selectedTab);
 
+        // Initialize fragments
+        initializeMainFragments();
+        
+        // Restore selected tab
+        bottomNav.setSelectedItemId(selectedNavId);
+
+        // Handle intent for .txl file import
         Intent intent = getIntent();
         Uri uri = intent.getData();
         if (Intent.ACTION_VIEW.equals(intent.getAction()) && uri != null) {
-            Log.v("CANreader", "Importing transmit list from " + uri);
+            Log.v(TAG, "Importing transmit list from " + uri);
             try (InputStream input = getContentResolver().openInputStream(uri)) {
                 if (input == null) {
                     throw new IOException("Unable to open transmit list");
@@ -107,84 +121,93 @@ public class MainActivity extends ServiceConnectedActivity {
         }
     }
 
-    private void initializeMainFragments(boolean createFragments) {
+    private void initializeMainFragments() {
         androidx.fragment.app.FragmentManager fragmentManager = getSupportFragmentManager();
-        Fragment monitor = fragmentManager.findFragmentByTag(TAG_MONITOR);
-        Fragment transmit = fragmentManager.findFragmentByTag(TAG_TRANSMIT);
-        Fragment tracer = fragmentManager.findFragmentByTag(TAG_TRACER);
-        if (createFragments && monitor == null && transmit == null && tracer == null) {
-            monitor = new MonitorFragment();
-            transmit = new TransmitFragment();
-            tracer = new TracerFragment();
+        
+        // Check if fragments already exist
+        if (fragmentManager.findFragmentByTag("monitor") == null) {
             fragmentManager.beginTransaction()
                     .setReorderingAllowed(true)
-                    .add(R.id.main_fragment_container, monitor, TAG_MONITOR)
-                    .add(R.id.main_fragment_container, transmit, TAG_TRANSMIT)
-                    .add(R.id.main_fragment_container, tracer, TAG_TRACER)
+                    .add(R.id.main_fragment_container, new MonitorFragment(), "monitor")
+                    .commitNow();
+        }
+        if (fragmentManager.findFragmentByTag("stream") == null) {
+            fragmentManager.beginTransaction()
+                    .setReorderingAllowed(true)
+                    .add(R.id.main_fragment_container, new StreamFragment(), "stream")
+                    .commitNow();
+        }
+        if (fragmentManager.findFragmentByTag("transmit") == null) {
+            fragmentManager.beginTransaction()
+                    .setReorderingAllowed(true)
+                    .add(R.id.main_fragment_container, new TransmitFragment(), "transmit")
+                    .commitNow();
+        }
+        if (fragmentManager.findFragmentByTag("tracer") == null) {
+            fragmentManager.beginTransaction()
+                    .setReorderingAllowed(true)
+                    .add(R.id.main_fragment_container, new TracerFragment(), "tracer")
+                    .commitNow();
+        }
+        if (fragmentManager.findFragmentByTag("filters") == null) {
+            fragmentManager.beginTransaction()
+                    .setReorderingAllowed(true)
+                    .add(R.id.main_fragment_container, new FiltersFragment(), "filters")
                     .commitNow();
         }
     }
 
-    private void showMainTab(int position) {
-        androidx.fragment.app.FragmentManager fragmentManager = getSupportFragmentManager();
-        Fragment monitor = fragmentManager.findFragmentByTag(TAG_MONITOR);
-        Fragment transmit = fragmentManager.findFragmentByTag(TAG_TRANSMIT);
-        Fragment tracer = fragmentManager.findFragmentByTag(TAG_TRACER);
-
-        androidx.fragment.app.FragmentTransaction transaction = fragmentManager.beginTransaction()
+    private void showFragment(int fragmentId) {
+        selectedNavId = fragmentId;
+        androidx.fragment.app.FragmentManager fm = getSupportFragmentManager();
+        androidx.fragment.app.FragmentTransaction tx = fm.beginTransaction()
                 .setReorderingAllowed(true);
 
-        if (position == 0) {
-            if (monitor != null) transaction.show(monitor).setMaxLifecycle(monitor, Lifecycle.State.RESUMED);
-            if (transmit != null) transaction.hide(transmit);
-            if (tracer != null) transaction.hide(tracer);
-        } else if (position == 1) {
-            if (transmit != null) transaction.show(transmit).setMaxLifecycle(transmit, Lifecycle.State.RESUMED);
-            if (monitor != null) transaction.hide(monitor);
-            if (tracer != null) transaction.hide(tracer);
-        } else if (position == 2) {
-            if (tracer != null) transaction.show(tracer).setMaxLifecycle(tracer, Lifecycle.State.RESUMED);
-            if (monitor != null) transaction.hide(monitor);
-            if (transmit != null) transaction.hide(transmit);
+        // Hide all fragments first
+        for (Fragment f : fm.getFragments()) {
+            tx.hide(f);
         }
-        transaction.commit();
-        selectedTab = position;
-        invalidateOptionsMenu();
+
+        // Show selected fragment
+        Fragment target = fm.findFragmentByTag(getFragmentTag(fragmentId));
+        if (target != null) {
+            tx.show(target).setMaxLifecycle(target, Lifecycle.State.RESUMED);
+        }
+
+        tx.commit();
+    }
+
+    private String getFragmentTag(int fragmentId) {
+        if (fragmentId == R.id.fragment_monitor) return "monitor";
+        if (fragmentId == R.id.fragment_stream) return "stream";
+        if (fragmentId == R.id.fragment_transmit) return "transmit";
+        if (fragmentId == R.id.fragment_tracer) return "tracer";
+        if (fragmentId == R.id.fragment_filters) return "filters";
+        return "monitor";
     }
 
     @Override
     protected void onSaveInstanceState(Bundle outState) {
-        outState.putInt(STATE_SELECTED_TAB, selectedTab);
+        outState.putInt(STATE_SELECTED_NAV, selectedNavId);
         super.onSaveInstanceState(outState);
     }
 
-
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_main, menu);
         return true;
     }
 
     @Override
-    public boolean onPrepareOptionsMenu(Menu menu)
-    {
+    public boolean onPrepareOptionsMenu(Menu menu) {
         super.onPrepareOptionsMenu(menu);
 
         boolean hasMessages = bound && (canReaderService.getTransmitFrames().size() > 0);
-
-        /*Button buttonStartAll = (Button) getView().findViewById(R.id.buttonStartAll);
-        buttonStartAll.setEnabled(isConnected && canReaderService.hasStoppedTransmits());
-
-        Button buttonStopAll = (Button) getView().findViewById(R.id.buttonStopAll);
-        buttonStopAll.setEnabled(isConnected && canReaderService.hasStartedTransmits());
-*/
 
         MenuItem exportItem = menu.findItem(R.id.action_export_tx_list);
         if (exportItem != null) exportItem.setEnabled(hasMessages);
         MenuItem shareItem = menu.findItem(R.id.action_share_tx_list);
         if (shareItem != null) shareItem.setEnabled(hasMessages);
-
 
         return true;
     }
@@ -196,6 +219,8 @@ public class MainActivity extends ServiceConnectedActivity {
             startActivity(new Intent(this, ConnectionActivity.class));
             return true;
         } else if (itemId == R.id.action_settings) {
+            // TODO: Open Settings fragment
+            Toast.makeText(this, "Settings coming soon", Toast.LENGTH_SHORT).show();
             return true;
         } else if (itemId == R.id.action_about) {
             startActivity(new Intent(this, AboutActivity.class));
