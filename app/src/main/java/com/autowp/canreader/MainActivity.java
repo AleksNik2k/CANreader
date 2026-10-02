@@ -219,8 +219,7 @@ public class MainActivity extends ServiceConnectedActivity {
             startActivity(new Intent(this, ConnectionActivity.class));
             return true;
         } else if (itemId == R.id.action_settings) {
-            // TODO: Open Settings fragment
-            Toast.makeText(this, "Settings coming soon", Toast.LENGTH_SHORT).show();
+            showSettingsFragment();
             return true;
         } else if (itemId == R.id.action_about) {
             startActivity(new Intent(this, AboutActivity.class));
@@ -315,5 +314,34 @@ public class MainActivity extends ServiceConnectedActivity {
     @Override
     protected void beforeDisconnect() {
         canReaderService.removeListener(mOnTransmitChangeListener);
+    }
+
+    private void showSettingsFragment() {
+        androidx.fragment.app.FragmentManager fm = getSupportFragmentManager();
+        androidx.fragment.app.FragmentTransaction tx = fm.beginTransaction()
+                .setReorderingAllowed(true);
+
+        // Hide all main fragments
+        for (androidx.fragment.app.Fragment f : fm.getFragments()) {
+            tx.hide(f);
+        }
+
+        // Show or create Settings fragment
+        SettingsFragment settings = (SettingsFragment) fm.findFragmentByTag("settings");
+        if (settings == null) {
+            settings = new SettingsFragment();
+            tx.add(R.id.main_fragment_container, settings, "settings");
+        } else {
+            tx.show(settings);
+        }
+
+        // Update toolbar title
+        setSupportActionBar(findViewById(R.id.my_toolbar));
+        androidx.appcompat.widget.Toolbar toolbar = findViewById(R.id.my_toolbar);
+        if (toolbar != null) {
+            toolbar.setTitle(R.string.action_settings);
+        }
+
+        tx.commit();
     }
 }

@@ -6,6 +6,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.autowp.can.CanFrame;
@@ -15,7 +16,7 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * RecyclerView adapter for monitor CAN messages.
+ * RecyclerView adapter for monitor CAN messages - MD3 style.
  * Uses ViewHolder pattern for optimal performance.
  */
 public class MonitorCanMessageListAdapter extends RecyclerView.Adapter<MonitorCanMessageListAdapter.ViewHolder> {
@@ -80,9 +81,11 @@ public class MonitorCanMessageListAdapter extends RecyclerView.Adapter<MonitorCa
         TextView tvCount;
         TextView tvRtr;
         TextView tvDlc;
+        TextView tvExtended;
         View rtrLine;
         View dataLine;
         TextView[] tvData = new TextView[CanFrame.MAX_DLC];
+        ImageView ivComment;
 
         ViewHolder(View itemView) {
             super(itemView);
@@ -91,8 +94,10 @@ public class MonitorCanMessageListAdapter extends RecyclerView.Adapter<MonitorCa
             tvCount = itemView.findViewById(R.id.listitem_monitor_count);
             tvRtr = itemView.findViewById(R.id.listitem_monitor_rtr);
             tvDlc = itemView.findViewById(R.id.listitem_monitor_dlc);
+            tvExtended = itemView.findViewById(R.id.listitem_monitor_extended);
             rtrLine = itemView.findViewById(R.id.listitem_monitor_rtr_line);
             dataLine = itemView.findViewById(R.id.listitem_monitor_data);
+            ivComment = itemView.findViewById(R.id.listitem_monitor_comment_icon);
 
             tvData[0] = itemView.findViewById(R.id.listitem_monitor_data0);
             tvData[1] = itemView.findViewById(R.id.listitem_monitor_data1);
@@ -110,8 +115,11 @@ public class MonitorCanMessageListAdapter extends RecyclerView.Adapter<MonitorCa
             // ID
             if (canMessage.isExtended()) {
                 tvId.setText(String.format(Locale.ROOT, "%08X", canMessage.getId()));
+                tvExtended.setVisibility(View.VISIBLE);
+                tvExtended.setText("29");
             } else {
                 tvId.setText(String.format(Locale.ROOT, "%03X", canMessage.getId()));
+                tvExtended.setVisibility(View.GONE);
             }
 
             // Period and Count
@@ -140,6 +148,11 @@ public class MonitorCanMessageListAdapter extends RecyclerView.Adapter<MonitorCa
                     }
                 }
             }
+
+            // Comment icon - show if message has comment
+            // TODO: Get comment from message or separate storage
+            // For now, hide it
+            ivComment.setVisibility(View.GONE);
         }
     }
 }

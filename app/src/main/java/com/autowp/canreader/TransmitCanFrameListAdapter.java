@@ -13,6 +13,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+/**
+ * RecyclerView adapter for transmit CAN frames - MD3 style.
+ */
 public class TransmitCanFrameListAdapter extends RecyclerView.Adapter<TransmitCanFrameListAdapter.ViewHolder> {
 
     private List<TransmitCanFrame> items;
@@ -124,6 +127,7 @@ public class TransmitCanFrameListAdapter extends RecyclerView.Adapter<TransmitCa
         TextView tvCount;
         TextView tvRtr;
         TextView tvDlc;
+        TextView tvExtended;
         View rtrLine;
         View dataLine;
         TextView[] tvData = new TextView[CanFrame.MAX_DLC];
@@ -136,6 +140,7 @@ public class TransmitCanFrameListAdapter extends RecyclerView.Adapter<TransmitCa
             tvCount = itemView.findViewById(R.id.listitem_transmit_count);
             tvRtr = itemView.findViewById(R.id.listitem_transmit_rtr);
             tvDlc = itemView.findViewById(R.id.listitem_transmit_dlc);
+            tvExtended = itemView.findViewById(R.id.listitem_transmit_extended);
             rtrLine = itemView.findViewById(R.id.listitem_transmit_rtr_line);
             dataLine = itemView.findViewById(R.id.listitem_transmit_data);
             swEnabled = itemView.findViewById(R.id.listitem_transmit_switch);
@@ -166,8 +171,11 @@ public class TransmitCanFrameListAdapter extends RecyclerView.Adapter<TransmitCa
             // ID
             if (canFrame.isExtended()) {
                 tvId.setText(String.format(Locale.ROOT, "%08X", canFrame.getId()));
+                tvExtended.setVisibility(View.VISIBLE);
+                tvExtended.setText("29");
             } else {
                 tvId.setText(String.format(Locale.ROOT, "%03X", canFrame.getId()));
+                tvExtended.setVisibility(View.GONE);
             }
 
             // Single shot on ID click
