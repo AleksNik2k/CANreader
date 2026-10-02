@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:orientation="horizontal"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingVertical="4dp">
+
+    <TextView
+        tools:text="FFFFFFFF"
+        android:id="@+id/listitem_monitor_id"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="3"
+        android:textAppearance="@style/CanIdText" />
+
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:layout_marginStart="@dimen/margin_list_item"
+        android:layout_marginEnd="@dimen/margin_list_item"
+        android:layout_weight="1">
+
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical"
+            android:id="@+id/listitem_monitor_rtr_line">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/can_rtr"
+                android:textAppearance="@style/CanRtrText"
+                android:id="@+id/listitem_monitor_rtr" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="?android:attr/textAppearanceMedium"
+                tools:text="8"
+                android:id="@+id/listitem_monitor_dlc"
+                android:paddingStart="@dimen/padding_byte"
+                android:paddingLeft="@dimen/padding_byte"
+                android:paddingEnd="@dimen/padding_byte"
+                android:paddingRight="@dimen/padding_byte"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="start"
+            android:gravity="center_vertical|start"
+            android:id="@+id/listitem_monitor_data">
+
+            <TextView
+                tools:text="FF"
+                android:id="@+id/listitem_monitor_data0"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="@style/CanDataByteText" />
+
+            <TextView
+                tools:text="FF"
+                android:id="@+id/listitem_monitor_data1"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="@style/CanDataByteText"/>
+
+            <TextView
+                tools:text="FF"
+                android:id="@+id/listitem_monitor_data2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="@style/CanDataByteText"/>
+
+            <TextView
+                tools:text="FF"
+                android:id="@+id/listitem_monitor_data3"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="@style/CanDataByteText"/>
+
+            <TextView
+                tools:text="FF"
+                android:id="@+id/listitem_monitor_data4"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="@style/CanDataByteText"/>
+
+            <TextView
+                tools:text="FF"
+                android:id="@+id/listitem_monitor_data5"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="@style/CanDataByteText"/>
+
+            <TextView
+                tools:text="FF"
+                android:id="@+id/listitem_monitor_data6"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="@style/CanDataByteText"/>
+
+            <TextView
+                tools:text="FF"
+                android:id="@+id/listitem_monitor_data7"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="@style/CanDataByteText"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical|start"
+            android:gravity="center_vertical|start">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                tools:text="999ms"
+                android:id="@+id/listitem_monitor_period"
+                android:textAppearance="@style/CanPeriodText"/>
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                tools:text="999"
+                android:id="@+id/listitem_monitor_count"
+                android:layout_weight="1"
+                android:textAppearance="@style/CanCountText"/>
+        </LinearLayout>
+    </LinearLayout>
+
+</LinearLayout>

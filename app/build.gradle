@@ -1,0 +1,47 @@
+plugins {
+    alias(libs.plugins.android.application)
+}
+
+android {
+    namespace = 'com.autowp.canreader'
+    compileSdk 37
+
+    defaultConfig {
+        applicationId "com.autowp.canreader"
+        minSdk 23
+        targetSdk 37
+        versionCode 20
+        versionName "0.1.0.20"
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    packaging {
+        resources {
+            excludes += ['META-INF/LICENSE.txt', 'META-INF/NOTICE.txt']
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    buildFeatures {
+        buildConfig = true
+        viewBinding = true
+    }
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation libs.androidx.appcompat
+    implementation libs.androidx.activity
+    implementation libs.androidx.core
+    implementation libs.androidx.fragment
+    implementation libs.androidx.recyclerview
+    implementation libs.material
+    implementation libs.commons.configuration
+    testImplementation libs.junit
+}

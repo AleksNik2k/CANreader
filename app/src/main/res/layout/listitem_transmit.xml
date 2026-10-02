@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:orientation="horizontal"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingVertical="4dp">
+
+    <TextView
+        android:id="@+id/listitem_transmit_id"
+        android:layout_height="wrap_content"
+        android:layout_width="0dp"
+        android:layout_weight="5"
+        android:layout_margin="@dimen/margin_list_item"
+        android:layout_gravity="center"
+        tools:text="FFFFFFFF"
+        android:textAppearance="@style/CanIdText" />
+
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical|center_horizontal"
+        android:layout_margin="@dimen/margin_list_item"
+        android:layout_weight="3"
+        android:layout_gravity="center">
+
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical"
+            android:id="@+id/listitem_transmit_rtr_line">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/can_rtr"
+                android:textAppearance="@style/CanRtrText"
+                android:id="@+id/listitem_transmit_rtr" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="?android:attr/textAppearanceMedium"
+                tools:text="8"
+                android:id="@+id/listitem_transmit_dlc"
+                android:paddingStart="@dimen/padding_byte"
+                android:paddingLeft="@dimen/padding_byte"
+                android:paddingEnd="@dimen/padding_byte"
+                android:paddingRight="@dimen/padding_byte" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/listitem_transmit_data"
+            android:orientation="horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="start"
+            android:gravity="center_vertical|start">
+
+            <TextView
+                tools:text="FF"
+                android:id="@+id/listitem_transmit_data0"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="@style/CanDataByteText" />
+
+            <TextView
+                tools:text="FF"
+                android:id="@+id/listitem_transmit_data1"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="@style/CanDataByteText"/>
+
+            <TextView
+                tools:text="FF"
+                android:id="@+id/listitem_transmit_data2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="@style/CanDataByteText"/>
+
+            <TextView
+                tools:text="FF"
+                android:id="@+id/listitem_transmit_data3"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="@style/CanDataByteText"/>
+
+            <TextView
+                tools:text="FF"
+                android:id="@+id/listitem_transmit_data4"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="@style/CanDataByteText"/>
+
+            <TextView
+                tools:text="FF"
+                android:id="@+id/listitem_transmit_data5"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="@style/CanDataByteText"/>
+
+            <TextView
+                tools:text="FF"
+                android:id="@+id/listitem_transmit_data6"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="@style/CanDataByteText"/>
+
+            <TextView
+                tools:text="FF"
+                android:id="@+id/listitem_transmit_data7"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="@style/CanDataByteText"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical|start"
+            android:gravity="center_vertical|start">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                tools:text="999ms"
+                android:id="@+id/listitem_transmit_period"
+                android:textAppearance="@style/CanPeriodText"
+                />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                tools:text="999"
+                android:id="@+id/listitem_transmit_count"
+                android:layout_weight="1"
+                android:textAppearance="@style/CanCountText"
+                />
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <com.google.android.material.materialswitch.MaterialSwitch
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:id="@+id/listitem_transmit_switch"
+        android:checked="false"
+        android:focusable="true"
+        android:layout_weight="6"
+        android:layout_gravity="center"
+        android:gravity="center_vertical|center_horizontal"
+        android:enabled="true" />
+
+</LinearLayout>
