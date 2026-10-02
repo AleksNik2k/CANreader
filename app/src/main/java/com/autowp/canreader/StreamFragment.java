@@ -1,13 +1,20 @@
 package com.autowp.canreader;
 
+import android.app.Activity;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.FileProvider;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -17,27 +24,41 @@ import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.card.MaterialCardView;
 
-import com.autowp.can.CanFrame;
+import com.autowp.can.CanMessage;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Stream (Поток) fragment - displays all CAN messages with timestamps
- * Similar to CarBusAnalyzer's "Поток" mode
+ * Stream (Поток) fragment - unified CAN stream viewer with recording.
+ * Combines Stream + Tracer functionality:
+ * - RX/TX chip filters
+ * - Record/Pause/Stop controls
+ * - Save/Open TRC files
+ * - Real-time message display with timestamps
  */
 public class StreamFragment extends Fragment {
 
-    private RecyclerView recyclerViewStream;
+    private RecyclerView recyclerView;
     private StreamMessageListAdapter adapter;
     private List<StreamMessage> messageList;
 
-    private MaterialButton buttonRecord, buttonStop, buttonExport, buttonImport, buttonClear;
+    private MaterialButton buttonRecord, buttonPause, buttonStop, buttonSave, buttonOpen, buttonClear;
     private Chip chipAll, chipRx, chipTx;
     private TextView tvStatus, tvCount;
 
     private boolean isRecording = false;
+    private boolean isPaused = false;
     private int messageCount = 0;
+    private StreamFilterMode filterMode = StreamFilterMode.ALL;
+
+    private final ActivityResultLauncher<String> saveLauncher =
+            registerForActivityResult(new ActivityResultContracts.CreateDocument("application/octet-stream"), this::saveTrc);
+    private final ActivityResultLauncher<String[]> openLauncher =
+            registerForActivityResult(new ActivityResultContracts.OpenDocument(), this::openTrc);
 
     @Nullable
     @Override
@@ -51,23 +72,24 @@ public class StreamFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
 
         // Initialize views
-        recyclerViewStream = view.findViewById(R.id.recyclerViewStream);
-        buttonRecord = view.findViewById(R.id.buttonStreamRecord);
-        buttonStop = view.findViewById(R.id.buttonStreamStop);
-        buttonExport = view.findViewById(R.id.buttonStreamExport);
-        buttonImport = view.findViewById(R.id.buttonStreamImport);
-        buttonClear = view.findViewById(R.id.buttonStreamClear);
+        recyclerView = view.findViewById(R.id.recyclerView);
+        buttonRecord = view.findViewById(R.id.buttonRecord);
+        buttonPause = view.findViewById(R.id.buttonPause);
+        buttonStop = view.findViewById(R.id.buttonStop);
+        buttonSave = view.findViewById(R.id.buttonSave);
+        buttonOpen = view.findViewById(R.id.buttonOpen);
+        buttonClear = view.findViewById(R.id.buttonClear);
         chipAll = view.findViewById(R.id.chipAll);
         chipRx = view.findViewById(R.id.chipRx);
         chipTx = view.findViewById(R.id.chipTx);
-        tvStatus = view.findViewById(R.id.tvStreamStatus);
-        tvCount = view.findViewById(R.id.tvStreamCount);
+        tvStatus = view.findViewById(R.id.tvStatus);
+        tvCount = view.findViewById(R.id.tvCount);
 
         // Setup RecyclerView
         messageList = new ArrayList<>();
         adapter = new StreamMessageListAdapter(messageList);
-        recyclerViewStream.setLayoutManager(new LinearLayoutManager(requireContext()));
-        recyclerViewStream.setAdapter(adapter);
+        recyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
+        recyclerView.setAdapter(adapter);
 
         // Setup chip group - single selection
         ChipGroup chipGroup = view.findViewById(R.id.chipGroup);
@@ -75,6 +97,15 @@ public class StreamFragment extends Fragment {
             chipGroup.setOnCheckedStateChangeListener((group, checkedIds) -> {
                 if (checkedIds == null || checkedIds.isEmpty()) {
                     chipAll.setChecked(true);
+                } else if (checkedIds.size() == 1) {
+                    int checkedId = checkedIds.get(0);
+                    if (checkedId == R.id.chipAll) {
+                        filterMode = StreamFilterMode.ALL;
+                    } else if (checkedId == R.id.chipRx) {
+                        filterMode = StreamFilterMode.RX_ONLY;
+                    } else if (checkedId == R.id.chipTx) {
+                        filterMode = StreamFilterMode.TX_ONLY;
+                    }
                 }
             });
         }
@@ -82,30 +113,50 @@ public class StreamFragment extends Fragment {
         // Record button
         buttonRecord.setOnClickListener(v -> startRecording());
 
+        // Pause button
+        buttonPause.setOnClickListener(v -> togglePause());
+
         // Stop button
         buttonStop.setOnClickListener(v -> stopRecording());
 
         // Clear button
         buttonClear.setOnClickListener(v -> clearMessages());
 
-        // Export button
-        buttonExport.setOnClickListener(v -> exportStream());
+        // Save button
+        buttonSave.setOnClickListener(v -> saveAsTrc());
 
-        // Import button
-        buttonImport.setOnClickListener(v -> importStream());
+        // Open button
+        buttonOpen.setOnClickListener(v -> openTrcFile());
     }
 
     private void startRecording() {
         isRecording = true;
+        isPaused = false;
         buttonRecord.setEnabled(false);
+        buttonPause.setEnabled(true);
         buttonStop.setEnabled(true);
         tvStatus.setText(R.string.stream_recording);
         tvStatus.setTextColor(requireContext().getColor(android.R.color.holo_green_dark));
     }
 
+    private void togglePause() {
+        if (isPaused) {
+            isPaused = false;
+            buttonPause.setText(R.string.stream_paused);
+            tvStatus.setText(R.string.stream_recording);
+        } else {
+            isPaused = true;
+            buttonPause.setText("Resume");
+            tvStatus.setText(R.string.stream_paused);
+        }
+    }
+
     private void stopRecording() {
         isRecording = false;
+        isPaused = false;
         buttonRecord.setEnabled(true);
+        buttonPause.setEnabled(false);
+        buttonPause.setText(R.string.stream_paused);
         buttonStop.setEnabled(false);
         tvStatus.setText(R.string.stream_idle);
         tvStatus.setTextColor(requireContext().getColor(android.R.color.darker_gray));
@@ -116,23 +167,77 @@ public class StreamFragment extends Fragment {
         adapter.notifyDataSetChanged();
         messageCount = 0;
         tvCount.setText("0");
-        buttonExport.setEnabled(false);
-        buttonImport.setEnabled(false);
+        buttonSave.setEnabled(false);
+        buttonOpen.setEnabled(false);
     }
 
-    private void exportStream() {
-        // TODO: Implement stream export to .trc, .csv, .asc formats
+    private void saveAsTrc() {
+        saveLauncher.launch("trace.trc");
     }
 
-    private void importStream() {
-        // TODO: Implement stream import from .trc, .csv, .asc formats
+    private void saveTrc(@Nullable Uri uri) {
+        if (uri == null || messageList.isEmpty()) {
+            return;
+        }
+        try (OutputStream output = requireContext().getContentResolver().openOutputStream(uri)) {
+            if (output == null) {
+                throw new IOException("Unable to open destination");
+            }
+            // Convert StreamMessage to TracerMessage for export
+            List<TracerMessage> tracerMessages = new ArrayList<>();
+            for (StreamMessage msg : messageList) {
+                tracerMessages.add(new TracerMessage(msg.frame, msg.timestamp));
+            }
+            TracerExporter.exportTrc(tracerMessages, output);
+            Toast.makeText(requireContext(), "Saved: " + messageList.size() + " messages", Toast.LENGTH_SHORT).show();
+        } catch (IOException e) {
+            Toast.makeText(requireContext(), e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void openTrcFile() {
+        openLauncher.launch(new String[]{"*/*"});
+    }
+
+    private void openTrc(@Nullable Uri uri) {
+        if (uri == null) {
+            return;
+        }
+        try (InputStream input = requireContext().getContentResolver().openInputStream(uri)) {
+            if (input == null) {
+                throw new IOException("Unable to open file");
+            }
+            List<TracerMessage> loaded = TracerImporter.importTrc(input);
+            if (loaded != null && !loaded.isEmpty()) {
+                messageList.clear();
+                for (TracerMessage tm : loaded) {
+                    messageList.add(new StreamMessage(tm.getTimestampMs(), "1", false, tm.getCanFrame()));
+                }
+                messageCount = messageList.size();
+                tvCount.setText(String.valueOf(messageCount));
+                adapter.notifyDataSetChanged();
+                buttonSave.setEnabled(true);
+                buttonOpen.setEnabled(true);
+                Toast.makeText(requireContext(), "Loaded: " + messageCount + " messages", Toast.LENGTH_SHORT).show();
+            }
+        } catch (IOException e) {
+            Toast.makeText(requireContext(), e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
     }
 
     /**
      * Add a message to the stream
      */
     public void addMessage(StreamMessage message) {
-        if (!isRecording && !isConnected()) {
+        if (!isRecording) {
+            return;
+        }
+        
+        // Apply filter
+        if (filterMode == StreamFilterMode.RX_ONLY && message.isTx) {
+            return;
+        }
+        if (filterMode == StreamFilterMode.TX_ONLY && !message.isTx) {
             return;
         }
         
@@ -142,19 +247,11 @@ public class StreamFragment extends Fragment {
         adapter.notifyItemInserted(messageList.size() - 1);
         
         // Auto-scroll to bottom
-        recyclerViewStream.scrollToPosition(messageList.size() - 1);
+        recyclerView.scrollToPosition(messageList.size() - 1);
         
-        // Enable export/import after first message
-        buttonExport.setEnabled(true);
-        buttonImport.setEnabled(true);
-    }
-
-    /**
-     * Check if CAN service is connected
-     */
-    private boolean isConnected() {
-        // TODO: Check connection status via CanReaderService
-        return false;
+        // Enable save after first message
+        buttonSave.setEnabled(true);
+        buttonOpen.setEnabled(true);
     }
 
     /**
@@ -164,9 +261,9 @@ public class StreamFragment extends Fragment {
         public final long timestamp;
         public final String channel;
         public final boolean isTx;
-        public final CanFrame frame;
+        public final CanMessage frame;
 
-        public StreamMessage(long timestamp, String channel, boolean isTx, CanFrame frame) {
+        public StreamMessage(long timestamp, String channel, boolean isTx, CanMessage frame) {
             this.timestamp = timestamp;
             this.channel = channel;
             this.isTx = isTx;
@@ -257,5 +354,12 @@ public class StreamFragment extends Fragment {
             }
             return sb.toString();
         }
+    }
+
+    /**
+     * Stream filter mode
+     */
+    public enum StreamFilterMode {
+        ALL, RX_ONLY, TX_ONLY
     }
 }

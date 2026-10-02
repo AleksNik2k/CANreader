@@ -24,12 +24,6 @@
         tools:layout="@layout/fragment_transmit" />
 
     <fragment
-        android:id="@+id/fragment_tracer"
-        android:name="com.autowp.canreader.TracerFragment"
-        android:label="@string/nav_tracer"
-        tools:layout="@layout/fragment_tracer" />
-
-    <fragment
         android:id="@+id/fragment_filters"
         android:name="com.autowp.canreader.FiltersFragment"
         android:label="@string/nav_filters"

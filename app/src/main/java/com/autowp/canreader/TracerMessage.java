@@ -9,9 +9,9 @@ import java.util.Date;
  */
 public class TracerMessage {
     private final CanMessage canMessage;
-    private final Date timestamp;
+    private final long timestamp;
 
-    public TracerMessage(CanMessage canMessage, Date timestamp) {
+    public TracerMessage(CanMessage canMessage, long timestamp) {
         this.canMessage = canMessage;
         this.timestamp = timestamp;
     }
@@ -20,7 +20,15 @@ public class TracerMessage {
         return canMessage;
     }
 
+    public CanMessage getCanFrame() {
+        return canMessage;
+    }
+
     public Date getTimestamp() {
+        return new Date(timestamp);
+    }
+
+    public long getTimestampMs() {
         return timestamp;
     }
 }

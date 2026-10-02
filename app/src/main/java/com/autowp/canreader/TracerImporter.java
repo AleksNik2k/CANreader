@@ -80,7 +80,7 @@ public class TracerImporter {
                             : new CanMessage(id, data, isExtended);
 
                     // Use current time as fallback
-                    messages.add(new TracerMessage(frame, now));
+                    messages.add(new TracerMessage(frame, System.currentTimeMillis()));
                 } catch (Exception e) {
                     // Skip invalid lines
                 }
@@ -134,7 +134,7 @@ public class TracerImporter {
                             ? new CanMessage(id, (byte) dlc, isExtended)
                             : new CanMessage(id, data, isExtended);
 
-                    messages.add(new TracerMessage(frame, now));
+                    messages.add(new TracerMessage(frame, System.currentTimeMillis()));
                 } catch (Exception e) {
                     // Skip invalid lines
                 }
@@ -172,8 +172,7 @@ public class TracerImporter {
                 String[] tsParts = timestampStr.split(",");
                 long seconds = Long.parseLong(tsParts[0].trim());
                 long millis = tsParts.length > 1 ? Long.parseLong(tsParts[1].trim()) : 0;
-                long timeMs = seconds * 1000 + millis;
-                Date timestamp = new Date(timeMs);
+                long timestamp = seconds * 1000 + millis;
 
                 // Channel (игнорируем)
                 // int channel = Integer.parseInt(parts[1].trim());
@@ -217,5 +216,63 @@ public class TracerImporter {
         // DBC format is for database description, not trace data
         // Return empty list with a comment
         return new ArrayList<>();
+    }
+
+    /**
+     * Импорт из формата CanHacker Trace .trc
+     */
+    public static List<TracerMessage> importTrc(InputStream inputStream) throws IOException {
+        List<TracerMessage> messages = new ArrayList<>();
+        BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, "UTF-8"));
+
+        String line;
+        while ((line = reader.readLine()) != null) {
+            // Skip header lines
+            if (line.startsWith("@ TEXT") || line.startsWith("#")) {
+                continue;
+            }
+            
+            // Parse data lines
+            String[] parts = line.split("\t");
+            if (parts.length < 6) {
+                continue;
+            }
+            
+            try {
+                // Parse timestamp
+                String[] timeParts = parts[0].trim().split(",");
+                long seconds = Long.parseLong(timeParts[0]);
+                long millis = Long.parseLong(timeParts[1]);
+                long timestamp = (seconds * 1000) + millis;
+
+                // Flags
+                int flags = Integer.parseInt(parts[2].trim(), 16);
+                boolean isExtended = (flags & 0x0001) != 0;
+                boolean isRtr = (flags & 0x0008) != 0;
+
+                // MsgID
+                String idStr = parts[3].trim();
+                int id = Integer.parseInt(idStr, 16);
+
+                // DLC
+                int dlc = Integer.parseInt(parts[4].trim());
+
+                // Data
+                byte[] data = new byte[0];
+                if (!isRtr && parts.length > 5 && !parts[5].trim().isEmpty()) {
+                    data = Hex.hexStringToByteArray(parts[5].trim());
+                }
+
+                CanMessage frame = isRtr
+                        ? new CanMessage(id, (byte) dlc, isExtended)
+                        : new CanMessage(id, data, isExtended);
+
+                messages.add(new TracerMessage(frame, timestamp));
+            } catch (Exception e) {
+                // Skip invalid lines
+            }
+        }
+        reader.close();
+        return messages;
     }
 }

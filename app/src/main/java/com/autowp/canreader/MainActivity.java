@@ -148,9 +148,6 @@ public class MainActivity extends ServiceConnectedActivity {
             } else if (itemId == R.id.fragment_transmit) {
                 showFragment(R.id.fragment_transmit);
                 return true;
-            } else if (itemId == R.id.fragment_tracer) {
-                showFragment(R.id.fragment_tracer);
-                return true;
             } else if (itemId == R.id.fragment_filters) {
                 showFragment(R.id.fragment_filters);
                 return true;
@@ -201,12 +198,6 @@ public class MainActivity extends ServiceConnectedActivity {
                     .add(R.id.main_fragment_container, new TransmitFragment(), "transmit")
                     .commitNow();
         }
-        if (fragmentManager.findFragmentByTag("tracer") == null) {
-            fragmentManager.beginTransaction()
-                    .setReorderingAllowed(true)
-                    .add(R.id.main_fragment_container, new TracerFragment(), "tracer")
-                    .commitNow();
-        }
         if (fragmentManager.findFragmentByTag("filters") == null) {
             fragmentManager.beginTransaction()
                     .setReorderingAllowed(true)
@@ -251,7 +242,6 @@ public class MainActivity extends ServiceConnectedActivity {
         if (fragmentId == R.id.fragment_monitor) return "monitor";
         if (fragmentId == R.id.fragment_stream) return "stream";
         if (fragmentId == R.id.fragment_transmit) return "transmit";
-        if (fragmentId == R.id.fragment_tracer) return "tracer";
         if (fragmentId == R.id.fragment_filters) return "filters";
         if (fragmentId == R.id.fragment_settings) return "settings";
         return "monitor";
@@ -261,7 +251,6 @@ public class MainActivity extends ServiceConnectedActivity {
         if (fragmentId == R.id.fragment_monitor) return getString(R.string.nav_monitor);
         if (fragmentId == R.id.fragment_stream) return getString(R.string.nav_stream);
         if (fragmentId == R.id.fragment_transmit) return getString(R.string.nav_transmit);
-        if (fragmentId == R.id.fragment_tracer) return getString(R.string.nav_tracer);
         if (fragmentId == R.id.fragment_filters) return getString(R.string.nav_filters);
         if (fragmentId == R.id.fragment_settings) return getString(R.string.action_settings);
         return getString(R.string.app_name);

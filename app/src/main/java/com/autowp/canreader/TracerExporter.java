@@ -225,12 +225,12 @@ public class TracerExporter {
         // Строки данных
         for (TracerMessage msg : messages) {
             CanMessage frame = msg.getCanMessage();
-            Date ts = msg.getTimestamp();
-            if (ts == null) continue;
+            if (frame == null) continue;
 
             // TimeStamp: секунды,миллисекунды
-            long seconds = ts.getTime() / 1000;
-            long millis = ts.getTime() % 1000;
+            long ts = msg.getTimestampMs();
+            long seconds = ts / 1000;
+            long millis = ts % 1000;
             sb.append(seconds).append(",").append(String.format(Locale.ROOT, "%03d", millis));
 
             // Channel
@@ -273,6 +273,72 @@ public class TracerExporter {
             sb.append("\n");
         }
 
+        out.write(sb.toString().getBytes(StandardCharsets.UTF_8));
+        out.flush();
+    }
+
+    /**
+     * Экспорт в формат CanHacker Trace .trc
+     */
+    public static void exportTrc(List<TracerMessage> messages, OutputStream out) throws IOException {
+        StringBuilder sb = new StringBuilder();
+        
+        // Header line 1
+        sb.append("@ TEXT @ 2 @ 64 @ 1 @ ").append(messages.size()).append(" @ 0 @ 00:00:00.000 @\n");
+        
+        // Header line 2
+        sb.append("# DeviceGUID # DeviceName # Source # SourceBaudrate # ChannelAliases # ChannelBaudrates #\n");
+        
+        // Data lines
+        for (TracerMessage msg : messages) {
+            CanMessage frame = msg.getCanFrame();
+            long ts = msg.getTimestampMs();
+            
+            // TimeStamp: секунды,миллисекунды
+            long seconds = ts / 1000;
+            long millis = ts % 1000;
+            sb.append(String.format(Locale.ROOT, "%d,%03d", seconds, millis));
+            
+            // Channel
+            sb.append("\t1");
+            
+            // Flags: 0001=29-bit, 0008=RTR, 0020=BRS
+            int flags = 0;
+            if (frame.isExtended()) flags |= 0x0001;
+            if (frame.isRTR()) flags |= 0x0008;
+            sb.append("\t").append(String.format(Locale.ROOT, "%04X", flags));
+            
+            // MsgID
+            String idStr = frame.isExtended()
+                    ? String.format(Locale.ROOT, "%08X", frame.getId())
+                    : String.format(Locale.ROOT, "%03X", frame.getId());
+            sb.append("\t").append(idStr);
+            
+            // DLC
+            sb.append("\t").append(frame.getDLC());
+            
+            // Data
+            if (frame.isRTR()) {
+                sb.append("\t");
+            } else {
+                byte[] data = frame.getData();
+                for (int i = 0; i < data.length; i++) {
+                    sb.append(String.format(Locale.ROOT, "%02X", data[i] & 0xFF));
+                    if (i < data.length - 1) sb.append(" ");
+                }
+                sb.append("\t");
+            }
+            
+            // CRC (пусто для CAN)
+            sb.append("\t");
+            
+            // ASCII (пусто)
+            sb.append("\t");
+            
+            // Comment (пусто)
+            sb.append("\n");
+        }
+        
         out.write(sb.toString().getBytes(StandardCharsets.UTF_8));
         out.flush();
     }
