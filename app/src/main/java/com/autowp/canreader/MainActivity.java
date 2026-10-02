@@ -3,6 +3,9 @@ package com.autowp.canreader;
 import android.net.Uri;
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.DisplayMetrics;
+import android.view.Display;
+import android.view.WindowManager;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.core.content.FileProvider;
@@ -12,6 +15,7 @@ import androidx.lifecycle.Lifecycle;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
 import android.widget.Toast;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
@@ -28,14 +32,16 @@ import java.util.List;
 
 /**
  * Main activity with Material Design 3 navigation.
- * Uses BottomNavigationView for phone, can be extended for tablet split-pane.
+ * Uses BottomNavigationView for phone, split-pane for tablet (>= 600dp).
  */
 public class MainActivity extends ServiceConnectedActivity {
     private static final String TAG = "MainActivity";
     private static final String STATE_SELECTED_NAV = "selected_nav";
+    private static final int MIN_TABLET_WIDTH_DP = 600;
 
     private List<TransmitCanFrame> mTxListToLoad = null;
     private int selectedNavId = R.id.fragment_monitor;
+    private boolean isTablet = false;
 
     private final ActivityResultLauncher<String> createTxListLauncher =
             registerForActivityResult(
@@ -64,18 +70,71 @@ public class MainActivity extends ServiceConnectedActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        
+        // Detect if tablet
+        isTablet = isDeviceTablet();
+        
+        // Set appropriate layout
+        setContentView(isTablet ? R.layout.activity_main_tablet : R.layout.activity_main);
 
         // Setup Toolbar
         Toolbar myToolbar = findViewById(R.id.my_toolbar);
         setSupportActionBar(myToolbar);
 
-        // Setup Bottom Navigation
-        BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
+        if (isTablet) {
+            setupTabletLayout();
+        } else {
+            setupPhoneLayout();
+        }
+
+        // Initialize fragments
+        initializeMainFragments();
         
         // Restore selected tab
         if (savedInstanceState != null) {
             selectedNavId = savedInstanceState.getInt(STATE_SELECTED_NAV, R.id.fragment_monitor);
+        }
+        
+        showFragment(selectedNavId);
+
+        // Handle intent for .txl file import
+        Intent intent = getIntent();
+        Uri uri = intent.getData();
+        if (Intent.ACTION_VIEW.equals(intent.getAction()) && uri != null) {
+            Log.v(TAG, "Importing transmit list from " + uri);
+            try (InputStream input = getContentResolver().openInputStream(uri)) {
+                if (input == null) {
+                    throw new IOException("Unable to open transmit list");
+                }
+                mTxListToLoad = TxListFile.read(input);
+            } catch (ConfigurationException | IOException e) {
+                Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    /**
+     * Detect if device is tablet based on screen width.
+     */
+    private boolean isDeviceTablet() {
+        WindowManager wm = (WindowManager) getSystemService(WINDOW_SERVICE);
+        if (wm == null) return false;
+        
+        Display display = wm.getDefaultDisplay();
+        DisplayMetrics metrics = new DisplayMetrics();
+        display.getMetrics(metrics);
+        
+        double widthInches = metrics.widthPixels / (double) metrics.xdpi;
+        return widthInches >= MIN_TABLET_WIDTH_DP / 160.0;
+    }
+
+    private void setupPhoneLayout() {
+        BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
+        if (bottomNav == null) return;
+        
+        // Restore selected tab
+        if (selectedNavId != 0) {
+            bottomNav.setSelectedItemId(selectedNavId);
         }
 
         bottomNav.setOnItemSelectedListener(item -> {
@@ -98,26 +157,25 @@ public class MainActivity extends ServiceConnectedActivity {
             }
             return false;
         });
+    }
 
-        // Initialize fragments
-        initializeMainFragments();
+    private void setupTabletLayout() {
+        // Tablet layout - hide bottom nav, show split pane
+        BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
+        if (bottomNav != null) {
+            bottomNav.setVisibility(View.GONE);
+        }
         
-        // Restore selected tab
-        bottomNav.setSelectedItemId(selectedNavId);
-
-        // Handle intent for .txl file import
-        Intent intent = getIntent();
-        Uri uri = intent.getData();
-        if (Intent.ACTION_VIEW.equals(intent.getAction()) && uri != null) {
-            Log.v(TAG, "Importing transmit list from " + uri);
-            try (InputStream input = getContentResolver().openInputStream(uri)) {
-                if (input == null) {
-                    throw new IOException("Unable to open transmit list");
-                }
-                mTxListToLoad = TxListFile.read(input);
-            } catch (ConfigurationException | IOException e) {
-                Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
-            }
+        // Show tablet split layout
+        View tabletLayout = findViewById(R.id.tablet_split_layout);
+        if (tabletLayout != null) {
+            tabletLayout.setVisibility(View.VISIBLE);
+        }
+        
+        // Hide phone fragment container
+        View phoneContainer = findViewById(R.id.main_fragment_container);
+        if (phoneContainer != null) {
+            phoneContainer.setVisibility(View.GONE);
         }
     }
 
@@ -155,6 +213,12 @@ public class MainActivity extends ServiceConnectedActivity {
                     .add(R.id.main_fragment_container, new FiltersFragment(), "filters")
                     .commitNow();
         }
+        if (fragmentManager.findFragmentByTag("settings") == null) {
+            fragmentManager.beginTransaction()
+                    .setReorderingAllowed(true)
+                    .add(R.id.main_fragment_container, new SettingsFragment(), "settings")
+                    .commitNow();
+        }
     }
 
     private void showFragment(int fragmentId) {
@@ -174,6 +238,12 @@ public class MainActivity extends ServiceConnectedActivity {
             tx.show(target).setMaxLifecycle(target, Lifecycle.State.RESUMED);
         }
 
+        // Update toolbar title
+        androidx.appcompat.widget.Toolbar toolbar = findViewById(R.id.my_toolbar);
+        if (toolbar != null) {
+            toolbar.setTitle(getFragmentTitle(fragmentId));
+        }
+
         tx.commit();
     }
 
@@ -183,7 +253,18 @@ public class MainActivity extends ServiceConnectedActivity {
         if (fragmentId == R.id.fragment_transmit) return "transmit";
         if (fragmentId == R.id.fragment_tracer) return "tracer";
         if (fragmentId == R.id.fragment_filters) return "filters";
+        if (fragmentId == R.id.fragment_settings) return "settings";
         return "monitor";
+    }
+
+    private String getFragmentTitle(int fragmentId) {
+        if (fragmentId == R.id.fragment_monitor) return getString(R.string.nav_monitor);
+        if (fragmentId == R.id.fragment_stream) return getString(R.string.nav_stream);
+        if (fragmentId == R.id.fragment_transmit) return getString(R.string.nav_transmit);
+        if (fragmentId == R.id.fragment_tracer) return getString(R.string.nav_tracer);
+        if (fragmentId == R.id.fragment_filters) return getString(R.string.nav_filters);
+        if (fragmentId == R.id.fragment_settings) return getString(R.string.action_settings);
+        return getString(R.string.app_name);
     }
 
     @Override
@@ -322,7 +403,7 @@ public class MainActivity extends ServiceConnectedActivity {
                 .setReorderingAllowed(true);
 
         // Hide all main fragments
-        for (androidx.fragment.app.Fragment f : fm.getFragments()) {
+        for (Fragment f : fm.getFragments()) {
             tx.hide(f);
         }
 
@@ -336,7 +417,6 @@ public class MainActivity extends ServiceConnectedActivity {
         }
 
         // Update toolbar title
-        setSupportActionBar(findViewById(R.id.my_toolbar));
         androidx.appcompat.widget.Toolbar toolbar = findViewById(R.id.my_toolbar);
         if (toolbar != null) {
             toolbar.setTitle(R.string.action_settings);

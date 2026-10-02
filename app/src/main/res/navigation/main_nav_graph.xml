@@ -35,4 +35,10 @@
         android:label="@string/nav_filters"
         tools:layout="@layout/fragment_filters" />
 
+    <fragment
+        android:id="@+id/fragment_settings"
+        android:name="com.autowp.canreader.SettingsFragment"
+        android:label="@string/action_settings"
+        tools:layout="@layout/fragment_settings" />
+
 </navigation>
