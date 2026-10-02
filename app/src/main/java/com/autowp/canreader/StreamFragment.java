@@ -70,12 +70,14 @@ public class StreamFragment extends Fragment {
         recyclerViewStream.setAdapter(adapter);
 
         // Setup chip group - single selection
-        ChipGroup chipGroup = view.findViewById(R.id.chipAll);
-        chipGroup.setOnCheckedStateChangeListener((group, checkedIds) -> {
-            if (checkedIds == null || checkedIds.isEmpty()) {
-                chipAll.setChecked(true);
-            }
-        });
+        ChipGroup chipGroup = view.findViewById(R.id.chipGroup);
+        if (chipGroup != null) {
+            chipGroup.setOnCheckedStateChangeListener((group, checkedIds) -> {
+                if (checkedIds == null || checkedIds.isEmpty()) {
+                    chipAll.setChecked(true);
+                }
+            });
+        }
 
         // Record button
         buttonRecord.setOnClickListener(v -> startRecording());
